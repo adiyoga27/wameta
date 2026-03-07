@@ -86,6 +86,18 @@ class MessageController extends Controller
         ]);
 
         $device = Device::findOrFail($request->device_id);
+
+        // Check if device has enough balance
+        if ($device->balance <= 0) {
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Saldo perangkat tidak mencukupi (Rp 0 atau kurang).',
+                ]);
+            }
+            return redirect()->back()->with('error', 'Gagal mengirim: Saldo perangkat tidak mencukupi.');
+        }
+
         $waService = new WhatsAppService($device);
 
         $result = $waService->sendTextMessage($request->contact_number, $request->message);
@@ -130,6 +142,11 @@ class MessageController extends Controller
         }
 
         $device = Device::findOrFail($chatMessage->device_id);
+
+        if ($device->balance <= 0) {
+            return response()->json(['success' => false, 'error' => 'Saldo perangkat tidak mencukupi']);
+        }
+
         $waService = new WhatsAppService($device);
 
         $result = $waService->sendTextMessage($chatMessage->contact_number, $chatMessage->message_body);

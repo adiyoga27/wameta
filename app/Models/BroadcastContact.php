@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class BroadcastContact extends Model
 {
-    protected $fillable = ['broadcast_id', 'contact_id', 'status', 'wa_message_id', 'error_message'];
+    protected $fillable = ['broadcast_id', 'contact_id', 'status', 'wa_message_id', 'error_message', 'is_billed'];
 
     public function broadcast()
     {

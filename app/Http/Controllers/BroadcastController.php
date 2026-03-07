@@ -113,6 +113,12 @@ class BroadcastController extends Controller
 
         $device = $broadcast->device;
         $template = $broadcast->messageTemplate;
+
+        // Check if device has enough balance
+        if ($device->balance <= 0) {
+            return back()->with('error', 'Gagal mengirim: Saldo perangkat Anda tidak mencukupi (Rp 0 atau kurang). Harap topup terlebih dahulu.');
+        }
+
         $waService = new WhatsAppService($device);
 
         // Persiapkan parameter header jika template butuh lampiran media

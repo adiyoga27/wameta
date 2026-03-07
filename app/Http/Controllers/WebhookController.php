@@ -294,7 +294,8 @@ class WebhookController extends Controller
                 }
 
                 // Handle Billing Deduction from Meta's Pricing Object
-                if (isset($status['pricing']) && isset($status['pricing']['billable']) && $status['pricing']['billable'] === true) {
+                $isBillable = isset($status['pricing']['billable']) && filter_var($status['pricing']['billable'], FILTER_VALIDATE_BOOLEAN);
+                if (isset($status['pricing']) && $isBillable) {
                     $category = strtolower($status['pricing']['category'] ?? 'service');
                     
                     // Allow simple matching (marketing, utility, authentication, service)
