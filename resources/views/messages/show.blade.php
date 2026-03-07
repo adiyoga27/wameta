@@ -13,6 +13,15 @@
 @endsection
 
 @section('content')
+<x-tutorial title="Panduan Ruang Obrolan (Live Chat)">
+    <p>Anda saat ini sedang berada dalam panel percakapan dengan satu kontak tertentu.</p>
+    <ul>
+        <li>Pesan dari kontak akan berwarna putih, sedangkan balas balasan dari Anda akan berada di sebelah kanan (berwarna terang).</li>
+        <li>Gunakan area pengetikan di bawah untuk langsung merespon. Anda dapat menyisipkan emoji sesuai kebutuhan.</li>
+        <li>Pesan yang Anda kirim lewat kotak ini bersifat pesan teks biasa (Free Session Messages), dan bebas biaya tambahan dari Meta selama masih dalam 24-jam sesi Customer Care aktif.</li>
+    </ul>
+</x-tutorial>
+
 <div class="chat-container">
     {{-- Sidebar --}}
     <div class="chat-sidebar" id="chatSidebar">

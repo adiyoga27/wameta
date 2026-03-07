@@ -16,24 +16,61 @@ class TopupController extends Controller
         return $user->isSuperAdmin() ? Device::all() : $user->devices;
     }
 
-    /**
-     * Show top-up page with history
-     */
     public function index(Request $request)
     {
         $devices = $this->getAccessibleDevices();
         $deviceId = $request->get('device_id', $devices->first()?->id);
-        $device = $devices->firstWhere('id', $deviceId);
-
-        if (!$device) {
-            return redirect()->route('dashboard')->with('error', 'Anda tidak memiliki akses ke device ini.');
+        
+        $device = null;
+        if ($deviceId !== 'all') {
+            $device = $devices->firstWhere('id', $deviceId);
+            if (!$device) {
+                return redirect()->route('dashboard')->with('error', 'Anda tidak memiliki akses ke device ini.');
+            }
         }
 
-        $topups = Topup::where('device_id', $deviceId)
-            ->latest()
-            ->paginate(15);
+        $query = Topup::with(['device', 'user'])->latest();
+        if ($deviceId !== 'all') {
+            $query->where('device_id', $deviceId);
+        } elseif (!auth()->user()->isSuperAdmin()) {
+            $query->whereIn('device_id', $devices->pluck('id'));
+        }
+
+        $topups = $query->paginate(15);
 
         return view('topups.index', compact('devices', 'device', 'deviceId', 'topups'));
+    }
+
+    /**
+     * Create manual top-up (Superadmin only)
+     */
+    public function manualStore(Request $request)
+    {
+        if (!auth()->user()->isSuperAdmin()) abort(403);
+
+        $request->validate([
+            'device_id' => 'required|exists:devices,id',
+            'amount' => 'required|numeric|min:1',
+        ]);
+
+        $device = Device::findOrFail($request->device_id);
+        $user = auth()->user();
+        $orderId = 'MANUAL-' . $device->id . '-' . time() . '-' . rand(100, 999);
+
+        // Langsung credit balance
+        $device->increment('balance', $request->amount);
+
+        Topup::create([
+            'device_id' => $device->id,
+            'user_id' => $user->id,
+            'order_id' => $orderId,
+            'amount' => $request->amount,
+            'payment_type' => 'manual',
+            'status' => 'settlement',
+            'paid_at' => now(),
+        ]);
+
+        return back()->with('success', 'Manual Top Up berhasil ditambahkan ke device: ' . $device->name);
     }
 
     /**

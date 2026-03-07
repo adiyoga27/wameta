@@ -3,6 +3,17 @@
 @section('title', 'Buat Broadcast')
 
 @section('content')
+<x-tutorial title="Panduan Memulai Broadcast Baru">
+    <p>Ikuti langkah berikut untuk menyebarkan pesan massal:</p>
+    <ol>
+        <li>Atur <strong>Nama Broadcast</strong> sebagai referensi agar Anda mudah mengingat promosi yang dilakukan.</li>
+        <li>Pilih <strong>Template Meta</strong> yang sudah `APPROVED`.</li>
+        <li>Pilih target <strong>Kontak</strong> Anda. Anda bisa mempercepat proses dengan menggunakan menu <em>Filter Kategori</em> (misal: hanya kirim ke "Member VIP").</li>
+        <li>Klik tombol <strong>Buat Broadcast</strong>.</li>
+    </ol>
+    <p>Setelah pesan terkirim, biaya saldo Meta (jika relevan dengan wilayah negara tujuan) akan terakumulasi pada akun bisnis WhatsApp Anda.</p>
+</x-tutorial>
+
 <div class="card" style="max-width:800px;">
     <div class="card-header">
         <h3><i class="bi bi-megaphone-fill" style="color:var(--accent);margin-right:8px;"></i> Buat Broadcast Baru</h3>

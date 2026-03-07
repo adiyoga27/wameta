@@ -104,7 +104,7 @@ class WebhookController extends Controller
 
                     // Handle status updates (delivery receipts)
                     if (isset($value['statuses'])) {
-                        $this->processStatuses($value);
+                        $this->processStatuses($device, $value);
                     }
 
                     // Handle errors
@@ -250,9 +250,9 @@ class WebhookController extends Controller
     }
 
     /**
-     * Process status updates (delivery receipts)
+     * Process status updates (delivery receipts) and handle billing
      */
-    private function processStatuses(array $value): void
+    private function processStatuses(Device $device, array $value): void
     {
         foreach ($value['statuses'] as $status) {
             $waMessageId = $status['id'] ?? null;
@@ -260,6 +260,8 @@ class WebhookController extends Controller
 
             if ($waMessageId && $messageStatus) {
                 $bc = BroadcastContact::where('wa_message_id', $waMessageId)->first();
+                $chatMsg = ChatMessage::where('wa_message_id', $waMessageId)->first();
+
                 if ($bc) {
                     $newStatus = match ($messageStatus) {
                         'sent' => 'sent',
@@ -287,9 +289,27 @@ class WebhookController extends Controller
                 }
 
                 // Also update chat_messages status
-                $chatMsg = ChatMessage::where('wa_message_id', $waMessageId)->first();
                 if ($chatMsg) {
                     $chatMsg->update(['status' => $messageStatus]);
+                }
+
+                // Handle Billing Deduction from Meta's Pricing Object
+                if (isset($status['pricing']) && isset($status['pricing']['billable']) && $status['pricing']['billable'] === true) {
+                    $category = strtolower($status['pricing']['category'] ?? 'service');
+                    
+                    // Allow simple matching (marketing, utility, authentication, service)
+                    $rate = \App\Models\Setting::getValue('meta_pricing_' . $category, 0);
+
+                    // Deduct balance if not already billed
+                    if ($bc && !$bc->is_billed) {
+                        $device->decrement('balance', $rate);
+                        $bc->update(['is_billed' => true]);
+                        Log::info("Billed {$rate} IDR to device {$device->name} for {$category} broadcast message.");
+                    } elseif ($chatMsg && $chatMsg->direction === 'out' && !$chatMsg->is_billed) {
+                        $device->decrement('balance', $rate);
+                        $chatMsg->update(['is_billed' => true]);
+                        Log::info("Billed {$rate} IDR to device {$device->name} for {$category} chat message.");
+                    }
                 }
             }
         }

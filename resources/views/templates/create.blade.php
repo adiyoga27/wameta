@@ -3,7 +3,17 @@
 @section('title', 'Buat Template')
 
 @section('content')
-<div class="card" style="max-width:800px;">
+<x-tutorial title="Panduan Membuat Template Pesan">
+    <p>Ajukan template baru ke WhatsApp Meta untuk di-review. Panduan:</p>
+    <ul>
+        <li><strong>Nama Template:</strong> Gunakan huruf kecil, angka, dan underscore (_) saja. Contoh: <code>promo_juni_2026</code>.</li>
+        <li><strong>Header:</strong> Opsional. Anda bisa melampirkan teks tebal, gambar, video, atau dokumen sebagai pembuka. File media akan langsung di-upload ke server Meta.</li>
+        <li><strong>Body:</strong> Isi pesan Anda. Anda pun bisa menggunakan variabel kustom seperti <code>{{1}}</code>, dll untuk disisipkan nama penerima nanti secara dinamis (opsional).</li>
+        <li><strong>Format:</strong> Dilarang menggunakan kata yang terindikasi menipu, spam, atau berbau SARA. Hindari huruf kapital berlebihan.</li>
+    </ul>
+</x-tutorial>
+
+<div class="card" style="max-width: 800px; margin: 0 auto;">
     <div class="card-header">
         <h3><i class="bi bi-plus-circle-fill" style="color:var(--accent);margin-right:8px;"></i> Buat Message Template</h3>
     </div>

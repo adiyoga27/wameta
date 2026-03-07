@@ -97,6 +97,53 @@ class WhatsAppService
     }
 
     /**
+     * Upload media file directly to Media API and get a media_id for sending messages.
+     * Docs: https://developers.facebook.com/docs/whatsapp/cloud-api/reference/media#upload-media
+     *
+     * @param string $filePath Absolute path to the file on disk
+     * @param string $mimeType MIME type of the file
+     * @return array ['success' => bool, 'media_id' => string|null, 'error' => string|null]
+     */
+    public function uploadMedia(string $filePath, string $mimeType): array
+    {
+        $phoneNumberId = $this->device->phone_number_id;
+        if (empty($phoneNumberId)) {
+            return ['success' => false, 'error' => 'Phone Number ID tidak dikonfigurasi di device', 'media_id' => null];
+        }
+
+        try {
+            $response = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . $this->device->access_token,
+                ])
+                ->attach('file', file_get_contents($filePath), basename($filePath))
+                ->post("{$this->baseUrl}/{$phoneNumberId}/media", [
+                    'messaging_product' => 'whatsapp',
+                    'type' => $mimeType,
+                ]);
+
+            $result = $response->json();
+            Log::info('WhatsApp Upload Media Response', ['response' => $result]);
+
+            if ($response->successful() && !empty($result['id'])) {
+                return [
+                    'success' => true,
+                    'media_id' => $result['id'],
+                ];
+            }
+
+            return [
+                'success' => false,
+                'error' => $result['error']['message'] ?? 'Gagal upload media',
+                'media_id' => null,
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('WhatsApp uploadMedia error: ' . $e->getMessage());
+            return ['success' => false, 'error' => $e->getMessage(), 'media_id' => null];
+        }
+    }
+
+    /**
      * Create a message template on Meta
      */
     public function createTemplate(array $data): array
@@ -273,7 +320,7 @@ class WhatsAppService
     /**
      * Send a template message to a phone number
      */
-    public function sendTemplateMessage(string $to, string $templateName, string $language = 'id', array $parameters = []): array
+    public function sendTemplateMessage(string $to, string $templateName, string $language = 'id', array $parameters = [], array $headerData = []): array
     {
         $payload = [
             'messaging_product' => 'whatsapp',
@@ -285,16 +332,31 @@ class WhatsAppService
             ],
         ];
 
-        // Add parameters if provided
+        $components = [];
+
+        // Add header if provided (e.g., media_id for IMAGE/VIDEO/DOCUMENT)
+        if (!empty($headerData)) {
+            $components[] = [
+                'type' => 'header',
+                'parameters' => [$headerData],
+            ];
+        }
+
+        // Add body parameters if provided
         if (!empty($parameters)) {
-            $components = [];
             $bodyParams = [];
             foreach ($parameters as $param) {
                 $bodyParams[] = ['type' => 'text', 'text' => $param];
             }
             if (!empty($bodyParams)) {
-                $components[] = ['type' => 'body', 'parameters' => $bodyParams];
+                $components[] = [
+                    'type' => 'body',
+                    'parameters' => $bodyParams
+                ];
             }
+        }
+
+        if (!empty($components)) {
             $payload['template']['components'] = $components;
         }
 

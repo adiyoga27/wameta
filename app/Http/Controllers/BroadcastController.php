@@ -115,6 +115,31 @@ class BroadcastController extends Controller
         $template = $broadcast->messageTemplate;
         $waService = new WhatsAppService($device);
 
+        // Persiapkan parameter header jika template butuh lampiran media
+        $headerData = [];
+        if (in_array($template->header_type, ['IMAGE', 'VIDEO', 'DOCUMENT'])) {
+            if ($template->header_media_path) {
+                $filePath = storage_path('app/public/' . $template->header_media_path);
+                if (file_exists($filePath)) {
+                    $mimeType = mime_content_type($filePath);
+                    $uploadResult = $waService->uploadMedia($filePath, $mimeType);
+                    
+                    if ($uploadResult['success']) {
+                        $mediaId = $uploadResult['media_id'];
+                        $typeKey = strtolower($template->header_type); // image, video, document
+                        $headerData = [
+                            'type' => $typeKey,
+                            $typeKey => ['id' => $mediaId]
+                        ];
+                    } else {
+                        // Jika gagal upload media, broadcast tidak bisa jalan
+                        $broadcast->update(['status' => 'failed']);
+                        return back()->with('error', 'Gagal memproses media template untuk broadcast: ' . ($uploadResult['error'] ?? 'Unknown error'));
+                    }
+                }
+            }
+        }
+
         $sent = 0;
         $failed = 0;
 
@@ -124,7 +149,9 @@ class BroadcastController extends Controller
             $result = $waService->sendTemplateMessage(
                 $contact->phone,
                 $template->name,
-                $template->language
+                $template->language,
+                [], // parameters (body params), currently unused
+                $headerData
             );
 
             if ($result['success']) {

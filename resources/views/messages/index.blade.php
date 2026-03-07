@@ -13,6 +13,15 @@
 @endsection
 
 @section('content')
+<x-tutorial title="Panduan Kotak Masuk (Inbox) Live Chat">
+    <p>Ini adalah halaman utama untuk memantau dan membalas semua pesan obrolan pelanggan secara real-time yang masuk ke nomor WA Business Anda.</p>
+    <ul>
+        <li>Daftar seluruh percakapan aktif dari pelanggan akan muncul di panel sebelah kiri.</li>
+        <li>Kotak obrolan ini hanya bisa dipakai gratis jika berada dalam jendela sesi percakapan <strong>24 jam terakhir</strong> sejak pelanggan mengirim pesan pertama kalinya.</li>
+        <li>Klik pada salah satu nama/nomor untuk membuka ruang percakapan dan membalas pesan tersebut seperti halnya di WhatsApp Web.</li>
+    </ul>
+</x-tutorial>
+
 <div class="chat-container">
     <div class="chat-sidebar">
         <div class="chat-sidebar-header">

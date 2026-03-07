@@ -28,6 +28,9 @@ Route::middleware('auth')->group(function () {
         Route::resource('users', UserController::class);
         Route::get('/webhook-logs', [WebhookLogController::class, 'index'])->name('webhook-logs.index');
         Route::get('/webhook-logs/{webhookLog}', [WebhookLogController::class, 'show'])->name('webhook-logs.show');
+        Route::get('/settings', [\App\Http\Controllers\SettingController::class, 'index'])->name('settings.index');
+        Route::post('/settings', [\App\Http\Controllers\SettingController::class, 'store'])->name('settings.store');
+        Route::post('/topups/manual', [TopupController::class, 'manualStore'])->name('topups.manual');
     });
 
     // Top Up (accessible by both superadmin and admin with device access)

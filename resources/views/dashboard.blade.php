@@ -3,6 +3,15 @@
 @section('title', 'Dashboard')
 
 @section('content')
+<x-tutorial title="Selamat Datang di Dashboard WA Meta">
+    <p>Ini adalah halaman utama laporan performa pengiriman pesan WhatsApp Anda. Di sini Anda bisa memantau:</p>
+    <ul>
+        <li><strong>Ringkasan Metrik:</strong> Jumlah perangkat, template Meta yang aktif, sesi broadcast, daftar kontak yang tersimpan, dan pesan masuk.</li>
+        <li><strong>Status Pengiriman:</strong> Pantau secara real-time berapa banyak pesan broadcast Anda yang berhasil <code>Terkirim</code>, <code>Diterima</code> (masuk ke HP tujuan), <code>Dibaca</code> (centang biru), atau justru <code>Gagal</code>.</li>
+        <li><strong>Aktivitas Terbaru:</strong> Temukan daftar broadcast terakhir yang Anda luncurkan dan pesan balasan terbaru dari pelanggan di bagian bawah halaman.</li>
+    </ul>
+</x-tutorial>
+
 <div class="stats-grid">
     <div class="stat-card">
         <div class="stat-icon green"><i class="bi bi-phone-fill"></i></div>

@@ -5,6 +5,9 @@
 @section('actions')
 <form method="GET" action="{{ route('topups.index') }}" style="display:flex;gap:8px;align-items:center;">
     <select name="device_id" class="form-control" style="width:200px;padding:8px 12px;" onchange="this.form.submit()">
+        @if(auth()->user()->isSuperAdmin())
+        <option value="all" {{ $deviceId == 'all' ? 'selected' : '' }}>-- Semua Device --</option>
+        @endif
         @foreach($devices as $d)
             <option value="{{ $d->id }}" {{ $deviceId == $d->id ? 'selected' : '' }}>{{ $d->name }}</option>
         @endforeach
@@ -14,6 +17,7 @@
 
 @section('content')
 
+@if($deviceId !== 'all' && $device)
 <!-- Balance Card -->
 <div class="card" style="margin-bottom:20px;background:linear-gradient(135deg, rgba(37,211,102,0.12) 0%, rgba(0,136,204,0.08) 100%);">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
@@ -24,9 +28,14 @@
             </div>
             <div style="font-size:13px;color:var(--text-muted);margin-top:4px;">{{ $device->name }}</div>
         </div>
-        <div>
+        <div style="display:flex;gap:10px;">
+            @if(auth()->user()->isSuperAdmin())
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('manualTopupModal').classList.add('show')">
+                <i class="bi bi-cash-coin"></i> Manual Top Up
+            </button>
+            @endif
             <button type="button" class="btn btn-primary" onclick="document.getElementById('topupModal').classList.add('show')">
-                <i class="bi bi-plus-circle-fill"></i> Top Up Saldo
+                <i class="bi bi-plus-circle-fill"></i> Midtrans Top Up
             </button>
         </div>
     </div>
@@ -36,12 +45,12 @@
 <div class="modal-overlay" id="topupModal">
     <div class="modal-content">
         <div class="modal-header">
-            <h3><i class="bi bi-wallet2" style="color:var(--accent);margin-right:8px;"></i> Top Up Saldo</h3>
+            <h3><i class="bi bi-wallet2" style="color:var(--accent);margin-right:8px;"></i> Pembayaran Midtrans</h3>
             <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('topupModal').classList.remove('show')">&times;</button>
         </div>
         <form method="POST" action="{{ route('topups.store') }}">
             @csrf
-            <input type="hidden" name="device_id" value="{{ $deviceId }}">
+            <input type="hidden" name="device_id" value="{{ $device->id }}">
 
             <div class="form-group">
                 <label class="form-label">Device</label>
@@ -66,37 +75,93 @@
             </div>
 
             <button type="submit" class="btn btn-primary" style="width:100%;margin-top:16px;">
-                <i class="bi bi-credit-card-fill"></i> Bayar Sekarang
+                <i class="bi bi-credit-card-fill"></i> Lanjut ke Pembayaran
             </button>
         </form>
     </div>
 </div>
 
+@if(auth()->user()->isSuperAdmin())
+<!-- Manual Topup Form (Modal) -->
+<div class="modal-overlay" id="manualTopupModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="bi bi-cash-coin" style="color:var(--accent);margin-right:8px;"></i> Manual Top Up (Superadmin)</h3>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('manualTopupModal').classList.remove('show')">&times;</button>
+        </div>
+        <form method="POST" action="{{ route('topups.manual') }}">
+            @csrf
+            <input type="hidden" name="device_id" value="{{ $device->id }}">
+
+            <div class="alert alert-warning">
+                Anda akan menambahkan saldo secara langsung ke device ini tanpa melalui gateway pembayaran.
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Device Tujuan</label>
+                <div style="font-weight:600;padding:10px 14px;background:var(--bg-primary);border-radius:8px;border:1px solid var(--border);">{{ $device->name }}</div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Nominal Saldo (IDR)</label>
+                <input type="number" name="amount" class="form-control" placeholder="Contoh: 500000" min="1" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width:100%;margin-top:16px;">
+                <i class="bi bi-check-circle-fill"></i> Tambahkan Saldo Sekarang
+            </button>
+        </form>
+    </div>
+</div>
+@endif
+
+@endif
+
 <!-- History -->
 <div class="card">
-    <div class="card-header">
-        <h3><i class="bi bi-clock-history" style="color:var(--info);margin-right:8px;"></i> Riwayat Top Up</h3>
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <h3><i class="bi bi-clock-history" style="color:var(--info);margin-right:8px;"></i> Riwayat Top Up {{ $deviceId == 'all' ? 'Semua Device' : '' }}</h3>
+        @if($deviceId == 'all' && auth()->user()->isSuperAdmin())
+        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('manualTopupGeneralModal').classList.add('show')">
+            <i class="bi bi-plus-circle"></i> Tambah Saldo Manual
+        </button>
+        @endif
     </div>
     @if($topups->isEmpty())
         <div class="empty-state">
             <i class="bi bi-wallet2"></i>
             <h4>Belum ada riwayat top up</h4>
-            <p>Klik tombol "Top Up Saldo" untuk memulai</p>
+            <p>Riwayat transaksi otomatis akan muncul di sini</p>
         </div>
     @else
         <div class="table-wrapper">
             <table>
                 <thead>
-                    <tr><th>Order ID</th><th>Oleh</th><th>Jumlah</th><th>Metode</th><th>Status</th><th>Waktu</th></tr>
+                    <tr>
+                        <th>Order ID</th>
+                        @if($deviceId == 'all')
+                        <th>Device</th>
+                        @endif
+                        <th>Oleh</th>
+                        <th>Jumlah</th>
+                        <th>Metode</th>
+                        <th>Status</th>
+                        <th>Waktu</th>
+                    </tr>
                 </thead>
                 <tbody>
                     @foreach($topups as $t)
                     <tr>
                         <td style="font-size:12px;font-family:monospace;">{{ $t->order_id }}</td>
+                        @if($deviceId == 'all')
+                        <td style="font-weight:600;">{{ $t->device->name ?? '-' }}</td>
+                        @endif
                         <td>{{ $t->user->name ?? '-' }}</td>
                         <td style="font-weight:700;color:var(--accent);">Rp {{ number_format($t->amount, 0, ',', '.') }}</td>
                         <td>
-                            @if($t->payment_type)
+                            @if($t->payment_type == 'manual')
+                                <span class="badge badge-purple"><i class="bi bi-person-fill-gear"></i> Manual</span>
+                            @elseif($t->payment_type)
                                 <span class="badge badge-info">{{ $t->payment_type }}</span>
                             @else
                                 <span class="badge badge-secondary">-</span>
@@ -138,20 +203,43 @@
     @endif
 </div>
 
-<style>
-.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); z-index:1000; align-items:center; justify-content:center; }
-.modal-overlay.show { display:flex; }
-.modal-content { background:var(--bg-secondary); border:1px solid var(--border); border-radius:16px; padding:28px; width:100%; max-width:500px; max-height:90vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.4); }
-.modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
-.modal-header h3 { margin:0; font-size:18px; }
-.amount-btn { transition: all 0.2s; }
-.amount-btn:hover, .amount-btn.selected { background:rgba(37,211,102,0.15) !important; border-color:var(--accent) !important; color:var(--accent) !important; }
-</style>
-@endsection
+@if($deviceId == 'all' && auth()->user()->isSuperAdmin())
+<!-- General Manual Topup Form (Modal) -->
+<div class="modal-overlay" id="manualTopupGeneralModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="bi bi-cash-coin" style="color:var(--accent);margin-right:8px;"></i> Manual Top Up (Superadmin)</h3>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('manualTopupGeneralModal').classList.remove('show')">&times;</button>
+        </div>
+        <form method="POST" action="{{ route('topups.manual') }}">
+            @csrf
+            
+            <div class="form-group">
+                <label class="form-label">Pilih Device Tujuan</label>
+                <select name="device_id" class="form-control" required>
+                    <option value="">-- Pilih Device --</option>
+                    @foreach($devices as $d)
+                        <option value="{{ $d->id }}">{{ $d->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Nominal Saldo (IDR)</label>
+                <input type="number" name="amount" class="form-control" placeholder="Contoh: 500000" min="1" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width:100%;margin-top:16px;">
+                <i class="bi bi-check-circle-fill"></i> Tambahkan Saldo Sekarang
+            </button>
+        </form>
+    </div>
+</div>
+@endif
 
 @section('scripts')
 <!-- Midtrans Snap JS -->
-<script src="{{ $device->id ? 'https://app.sandbox.midtrans.com/snap/snap.js' : 'https://app.midtrans.com/snap/snap.js' }}" data-client-key="{{ config('services.midtrans.client_key') }}"></script>
+<script src="{{ config('app.env') == 'production' ? 'https://app.midtrans.com/snap/snap.js' : 'https://app.sandbox.midtrans.com/snap/snap.js' }}" data-client-key="{{ config('services.midtrans.client_key') }}"></script>
 <script>
 function selectAmount(amount) {
     document.getElementById('amountInput').value = amount;
@@ -168,4 +256,14 @@ function payExisting(token) {
     });
 }
 </script>
+
+<style>
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); z-index:1000; align-items:center; justify-content:center; }
+.modal-overlay.show { display:flex; }
+.modal-content { background:var(--bg-secondary); border:1px solid var(--border); border-radius:16px; padding:28px; width:100%; max-width:500px; max-height:90vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.4); }
+.modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+.modal-header h3 { margin:0; font-size:18px; }
+.amount-btn { transition: all 0.2s; }
+.amount-btn:hover, .amount-btn.selected { background:rgba(37,211,102,0.15) !important; border-color:var(--accent) !important; color:var(--accent) !important; }
+</style>
 @endsection

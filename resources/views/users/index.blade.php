@@ -7,6 +7,15 @@
 @endsection
 
 @section('content')
+<x-tutorial title="Panduan Kelola Pengguna (Khusus Super Admin)">
+    <p>Sebagai Super Admin, Anda bebas membuat user login tenant (Customer) baru yang menyewa sistem SaaS WA Meta Anda.</p>
+    <ul>
+        <li>Klik <strong>Tambah Pengguna</strong> untuk register Admin/User tenant baru.</li>
+        <li>Tentukan limit batasan jumlah perangkat WhatsApp yang boleh mereka kelola.</li>
+        <li>Super Admin dapat melihat semua broadcast dan log server aplikasi di Dashboard mereka tanpa batasan filter.</li>
+    </ul>
+</x-tutorial>
+
 <div class="card">
     <div class="card-header">
         <h3><i class="bi bi-people-fill" style="color:var(--accent);margin-right:8px;"></i> Daftar Users</h3>

@@ -3,6 +3,15 @@
 @section('title', 'Kontak')
 
 @section('content')
+<x-tutorial title="Panduan Manajemen Kontak & Kategori">
+    <p>Gunakan halaman ini sebagai buku telepon (phonebook) digital yang terorganisir, khusus untuk nomor-nomor yang bersedia dikirim pesan WhatsApp oleh Anda (Opt-in).</p>
+    <ul>
+        <li><strong>Membuat Kategori:</strong> Buat kategori (misal: "VIP Customer", "Tamu Undangan") lewat tombol sebelah kiri atau tombol <i class="bi bi-folder-plus"></i> Kategori Baru. Kategori sangat berguna saat Anda membuat Broadcast nantinya.</li>
+        <li><strong>Import Excel:</strong> Klik <strong>Import Excel</strong> untuk memasukkan ribuan nomor sekaligus dari file Excel (.xlsx). Anda bisa menetapkan kategori tertentu untuk nomor-nomor yang diimport tersebut.</li>
+        <li>Nomor wajib menggunakan kode negara (contoh `6281...`, bukan `081...` atau `+62...`).</li>
+    </ul>
+</x-tutorial>
+
 <div style="display:grid;grid-template-columns:280px 1fr;gap:20px;">
 
     {{-- LEFT: Categories Sidebar --}}
