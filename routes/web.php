@@ -55,6 +55,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/contacts', [ContactController::class, 'store'])->name('contacts.store');
     Route::post('/contacts/import', [ContactController::class, 'import'])->name('contacts.import');
     Route::delete('/contacts/{contact}', [ContactController::class, 'destroy'])->name('contacts.destroy');
+    Route::patch('/contacts/{contact}/category', [ContactController::class, 'updateContactCategory'])->name('contacts.updateCategory');
+
+    // Contact Categories
+    Route::post('/contact-categories', [ContactController::class, 'storeCategory'])->name('contact-categories.store');
+    Route::put('/contact-categories/{category}', [ContactController::class, 'updateCategory'])->name('contact-categories.update');
+    Route::delete('/contact-categories/{category}', [ContactController::class, 'destroyCategory'])->name('contact-categories.destroy');
 
     // Messages / Chat
     Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');

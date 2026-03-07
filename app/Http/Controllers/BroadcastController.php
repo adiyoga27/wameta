@@ -40,9 +40,18 @@ class BroadcastController extends Controller
             ->where('status', 'APPROVED')
             ->get();
 
-        $contacts = Contact::where('user_id', auth()->id())->get();
+        $user = auth()->user();
+        $isSuperAdmin = $user->isSuperAdmin();
 
-        return view('broadcasts.create', compact('devices', 'deviceId', 'templates', 'contacts'));
+        $contacts = $isSuperAdmin
+            ? Contact::with('category')->latest()->get()
+            : Contact::with('category')->where('user_id', $user->id)->latest()->get();
+
+        $categories = $isSuperAdmin
+            ? \App\Models\ContactCategory::all()
+            : \App\Models\ContactCategory::where('user_id', $user->id)->get();
+
+        return view('broadcasts.create', compact('devices', 'deviceId', 'templates', 'contacts', 'categories'));
     }
 
     public function store(Request $request)

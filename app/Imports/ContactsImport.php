@@ -9,10 +9,19 @@ use Maatwebsite\Excel\Concerns\WithHeadingRow;
 
 class ContactsImport implements ToModel, WithHeadingRow
 {
+    protected $categoryId;
+
+    public function __construct($categoryId = null)
+    {
+        $this->categoryId = $categoryId;
+    }
+
     public function model(array $row)
     {
         $phone = $row['phone'] ?? $row['nomor'] ?? $row['no_hp'] ?? $row['telephone'] ?? $row['telepon'] ?? null;
         $name = $row['name'] ?? $row['nama'] ?? null;
+        // Support category from Excel column too
+        $category = $row['category'] ?? $row['kategori'] ?? null;
 
         if (!$phone) return null;
 
@@ -29,6 +38,7 @@ class ContactsImport implements ToModel, WithHeadingRow
             'user_id' => Auth::id(),
             'phone' => $phone,
             'name' => $name,
+            'category_id' => $this->categoryId, // from import form selection
         ]);
     }
 }
