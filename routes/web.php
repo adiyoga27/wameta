@@ -49,6 +49,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/broadcasts', [BroadcastController::class, 'store'])->name('broadcasts.store');
     Route::get('/broadcasts/{broadcast}', [BroadcastController::class, 'show'])->name('broadcasts.show');
     Route::post('/broadcasts/{broadcast}/send', [BroadcastController::class, 'send'])->name('broadcasts.send');
+    Route::post('/broadcasts/{broadcast}/add-contacts', [BroadcastController::class, 'addContacts'])->name('broadcasts.addContacts');
+    Route::post('/broadcasts/contacts/{broadcastContact}/reset', [BroadcastController::class, 'resetContact'])->name('broadcasts.resetContact');
 
     // Contacts
     Route::get('/contacts', [ContactController::class, 'index'])->name('contacts.index');

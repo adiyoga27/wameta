@@ -87,8 +87,20 @@ class BroadcastController extends Controller
 
     public function show(Broadcast $broadcast)
     {
-        $broadcast->load(['messageTemplate', 'device', 'broadcastContacts.contact']);
-        return view('broadcasts.show', compact('broadcast'));
+        $broadcast->load(['messageTemplate', 'device', 'broadcastContacts.contact', 'user']);
+
+        $user = auth()->user();
+        $isSuperAdmin = $user->isSuperAdmin();
+
+        $contacts = $isSuperAdmin
+            ? Contact::with('category')->latest()->get()
+            : Contact::with('category')->where('user_id', $user->id)->latest()->get();
+
+        $categories = $isSuperAdmin
+            ? \App\Models\ContactCategory::all()
+            : \App\Models\ContactCategory::where('user_id', $user->id)->get();
+
+        return view('broadcasts.show', compact('broadcast', 'contacts', 'categories'));
     }
 
     public function send(Broadcast $broadcast)
@@ -106,7 +118,7 @@ class BroadcastController extends Controller
         $sent = 0;
         $failed = 0;
 
-        foreach ($broadcast->broadcastContacts()->where('status', 'pending')->get() as $bc) {
+        foreach ($broadcast->broadcastContacts()->whereIn('status', ['pending', 'failed'])->get() as $bc) {
             $contact = $bc->contact;
 
             $result = $waService->sendTemplateMessage(
@@ -135,10 +147,63 @@ class BroadcastController extends Controller
 
         $broadcast->update([
             'status' => 'completed',
-            'sent' => $sent,
-            'failed' => $failed,
+            'sent' => $broadcast->broadcastContacts()->whereIn('status', ['sent', 'delivered', 'read'])->count(),
+            'failed' => $broadcast->broadcastContacts()->where('status', 'failed')->count(),
+            'delivered' => $broadcast->broadcastContacts()->whereIn('status', ['delivered', 'read'])->count(),
+            'read' => $broadcast->broadcastContacts()->where('status', 'read')->count(),
         ]);
 
-        return back()->with('success', "Broadcast selesai! Terkirim: {$sent}, Gagal: {$failed}");
+        return back()->with('success', "Broadcast selesai memproses kontak!");
+    }
+
+    public function addContacts(Request $request, Broadcast $broadcast)
+    {
+        $request->validate([
+            'contact_ids' => 'required|array|min:1',
+            'contact_ids.*' => 'exists:contacts,id',
+        ]);
+
+        $added = 0;
+        foreach ($request->contact_ids as $contactId) {
+            $exists = $broadcast->broadcastContacts()->where('contact_id', $contactId)->exists();
+            if (!$exists) {
+                BroadcastContact::create([
+                    'broadcast_id' => $broadcast->id,
+                    'contact_id' => $contactId,
+                    'status' => 'pending',
+                ]);
+                $added++;
+            }
+        }
+
+        if ($added > 0) {
+            $broadcast->increment('total', $added);
+            if ($broadcast->status === 'completed') {
+                $broadcast->update(['status' => 'draft']);
+            }
+            return back()->with('success', "{$added} kontak baru berhasil ditambahkan ke broadcast.");
+        }
+
+        return back()->with('info', 'Kontak yang dipilih sudah ada di broadcast ini.');
+    }
+
+    public function resetContact(BroadcastContact $broadcastContact)
+    {
+        $broadcastContact->update([
+            'status' => 'pending',
+            'error_message' => null,
+            'wa_message_id' => null,
+        ]);
+
+        $broadcast = $broadcastContact->broadcast;
+        $broadcast->update([
+            'status' => 'draft',
+            'sent' => $broadcast->broadcastContacts()->whereIn('status', ['sent', 'delivered', 'read'])->count(),
+            'failed' => $broadcast->broadcastContacts()->where('status', 'failed')->count(),
+            'delivered' => $broadcast->broadcastContacts()->whereIn('status', ['delivered', 'read'])->count(),
+            'read' => $broadcast->broadcastContacts()->where('status', 'read')->count(),
+        ]);
+
+        return back()->with('success', 'Status kontak berhasil dikembalikan ke Pending.');
     }
 }
