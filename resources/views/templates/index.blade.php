@@ -27,6 +27,18 @@
     <div class="card-header">
         <h3><i class="bi bi-file-earmark-text-fill" style="color:var(--accent);margin-right:8px;"></i> Daftar Message Templates</h3>
     </div>
+
+    @if(session('error_json'))
+    <div style="padding:0 20px;">
+        <details style="margin-bottom:12px;">
+            <summary style="cursor:pointer;font-size:12px;color:var(--accent);font-weight:600;">
+                <i class="bi bi-code-slash"></i> Lihat Response JSON Lengkap dari Meta API
+            </summary>
+            <pre style="background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:11px;overflow-x:auto;margin-top:8px;color:var(--text-secondary);max-height:400px;overflow-y:auto;">{{ session('error_json') }}</pre>
+        </details>
+    </div>
+    @endif
+
     @if($templates->isEmpty())
         <div class="empty-state">
             <i class="bi bi-file-earmark-text"></i>
@@ -75,10 +87,20 @@
                         </td>
                         <td>
                             @if($tpl->rejected_reason)
-                                <span style="color:var(--danger);font-size:13px;" title="{{ $tpl->rejected_reason }}">
+                                @php
+                                    $shortReason = Str::before($tpl->rejected_reason, "\n\n--- Full API Response ---");
+                                    $hasJson = Str::contains($tpl->rejected_reason, '--- Full API Response ---');
+                                @endphp
+                                <span style="color:var(--danger);font-size:13px;">
                                     <i class="bi bi-exclamation-triangle-fill"></i>
-                                    {{ Str::limit($tpl->rejected_reason, 50) }}
+                                    {{ Str::limit($shortReason, 50) }}
                                 </span>
+                                @if($hasJson)
+                                <details style="margin-top:4px;">
+                                    <summary style="cursor:pointer;font-size:10px;color:var(--accent);">Lihat detail JSON</summary>
+                                    <pre style="font-size:10px;background:var(--bg-primary);padding:8px;border-radius:6px;max-height:200px;overflow:auto;margin-top:4px;white-space:pre-wrap;">{{ Str::after($tpl->rejected_reason, "--- Full API Response ---\n") }}</pre>
+                                </details>
+                                @endif
                             @else
                                 <span style="color:var(--text-muted);font-size:13px;">-</span>
                             @endif

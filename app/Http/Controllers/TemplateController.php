@@ -47,20 +47,54 @@ class TemplateController extends Controller
             'footer' => 'nullable|string|max:60',
         ]);
 
-        // Handle media file upload
-        $headerMediaPath = null;
-        if ($request->hasFile('header_media') && in_array($data['header_type'], ['IMAGE', 'VIDEO', 'DOCUMENT'])) {
-            $file = $request->file('header_media');
-            $headerMediaPath = $file->store('template-media', 'public');
-            // Pass the public URL for Meta API
-            $data['header_media_url'] = asset('storage/' . $headerMediaPath);
-        }
-
         $device = Device::findOrFail($data['device_id']);
         $waService = new WhatsAppService($device);
 
+        // Handle media file upload — upload to Meta Resumable Upload API
+        $headerMediaPath = null;
+        $headerHandle = null;
+
+        if ($request->hasFile('header_media') && in_array($data['header_type'], ['IMAGE', 'VIDEO', 'DOCUMENT'])) {
+            $file = $request->file('header_media');
+            // Store locally first
+            $headerMediaPath = $file->store('template-media', 'public');
+
+            // Upload to Meta via Resumable Upload API to get the handle
+            $filePath = storage_path('app/public/' . $headerMediaPath);
+            $uploadResult = $waService->uploadMediaForHandle(
+                $filePath,
+                $file->getClientOriginalName(),
+                $file->getSize(),
+                $file->getMimeType()
+            );
+
+            if (!$uploadResult['success']) {
+                $errorJson = isset($uploadResult['full_response']) ? json_encode($uploadResult['full_response'], JSON_PRETTY_PRINT) : 'N/A';
+                return redirect()->route('templates.index', ['device_id' => $data['device_id']])
+                    ->with('error', 'Gagal upload media ke Meta: ' . ($uploadResult['error'] ?? 'Unknown error'))
+                    ->with('error_json', $errorJson);
+            }
+
+            $headerHandle = $uploadResult['handle'];
+        }
+
+        // Pass the handle to build components
+        $data['header_handle'] = $headerHandle;
+
         // Submit to Meta API
         $result = $waService->createTemplate($data);
+
+        // Build rejected reason with full JSON for debugging
+        $rejectedReason = null;
+        if (!$result['success']) {
+            $rejectedReason = ($result['error'] ?? 'Unknown error');
+            if (!empty($result['error_detail'])) {
+                $rejectedReason .= ' — ' . $result['error_detail'];
+            }
+            if (!empty($result['full_response'])) {
+                $rejectedReason .= "\n\n--- Full API Response ---\n" . json_encode($result['full_response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            }
+        }
 
         $template = MessageTemplate::create([
             'device_id' => $data['device_id'],
@@ -74,7 +108,7 @@ class TemplateController extends Controller
             'footer' => $data['footer'] ?? null,
             'buttons' => $request->input('buttons'),
             'status' => $result['success'] ? 'PENDING' : 'REJECTED',
-            'rejected_reason' => $result['success'] ? null : ($result['error'] ?? 'Unknown error'),
+            'rejected_reason' => $rejectedReason,
             'meta_template_id' => $result['data']['id'] ?? null,
         ]);
 
@@ -83,8 +117,16 @@ class TemplateController extends Controller
                 ->with('success', 'Template berhasil diajukan ke Meta untuk review!');
         }
 
+        $errorMsg = 'Gagal mengajukan template: ' . ($result['error'] ?? 'Unknown error');
+        if (!empty($result['full_response'])) {
+            $errorJson = json_encode($result['full_response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            return redirect()->route('templates.index', ['device_id' => $data['device_id']])
+                ->with('error', $errorMsg)
+                ->with('error_json', $errorJson);
+        }
+
         return redirect()->route('templates.index', ['device_id' => $data['device_id']])
-            ->with('error', 'Gagal mengajukan template: ' . ($result['error'] ?? 'Unknown error'));
+            ->with('error', $errorMsg);
     }
 
     public function sync(Request $request, $id)

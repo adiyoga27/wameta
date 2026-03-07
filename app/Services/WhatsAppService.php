@@ -25,6 +25,78 @@ class WhatsAppService
     }
 
     /**
+     * Upload media file to Meta Resumable Upload API and get a handle for template headers.
+     * Docs: https://developers.facebook.com/docs/graph-api/guides/upload
+     *
+     * @param string $filePath Absolute path to the file on disk
+     * @param string $fileName Original filename
+     * @param int $fileLength File size in bytes
+     * @param string $mimeType MIME type (image/jpeg, image/png, video/mp4, application/pdf)
+     * @return array ['success' => bool, 'handle' => string|null, 'error' => string|null, 'full_response' => array|null]
+     */
+    public function uploadMediaForHandle(string $filePath, string $fileName, int $fileLength, string $mimeType): array
+    {
+        $appId = $this->device->app_id;
+        if (empty($appId)) {
+            return ['success' => false, 'error' => 'App ID tidak dikonfigurasi di device', 'handle' => null];
+        }
+
+        try {
+            // Step 1: Create upload session
+            $sessionResponse = Http::withHeaders($this->headers())
+                ->post("{$this->baseUrl}/{$appId}/uploads", [
+                    'file_name' => $fileName,
+                    'file_length' => $fileLength,
+                    'file_type' => $mimeType,
+                ]);
+
+            $sessionResult = $sessionResponse->json();
+            Log::info('WhatsApp Upload Session Response', ['response' => $sessionResult]);
+
+            if (!$sessionResponse->successful() || empty($sessionResult['id'])) {
+                return [
+                    'success' => false,
+                    'error' => $sessionResult['error']['message'] ?? 'Gagal membuat upload session',
+                    'handle' => null,
+                    'full_response' => $sessionResult,
+                ];
+            }
+
+            $uploadSessionId = $sessionResult['id']; // e.g. "upload:xxxxx"
+
+            // Step 2: Upload file binary
+            $uploadResponse = Http::withHeaders([
+                    'Authorization' => 'OAuth ' . $this->device->access_token,
+                    'file_offset' => '0',
+                ])
+                ->withBody(file_get_contents($filePath), $mimeType)
+                ->post("{$this->baseUrl}/{$uploadSessionId}");
+
+            $uploadResult = $uploadResponse->json();
+            Log::info('WhatsApp Upload File Response', ['response' => $uploadResult]);
+
+            if (!$uploadResponse->successful() || empty($uploadResult['h'])) {
+                return [
+                    'success' => false,
+                    'error' => $uploadResult['error']['message'] ?? 'Gagal upload file',
+                    'handle' => null,
+                    'full_response' => $uploadResult,
+                ];
+            }
+
+            return [
+                'success' => true,
+                'handle' => $uploadResult['h'],
+                'full_response' => $uploadResult,
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('WhatsApp uploadMediaForHandle error: ' . $e->getMessage());
+            return ['success' => false, 'error' => $e->getMessage(), 'handle' => null];
+        }
+    }
+
+    /**
      * Create a message template on Meta
      */
     public function createTemplate(array $data): array
@@ -36,11 +108,14 @@ class WhatsAppService
             'components' => $this->buildComponents($data),
         ];
 
+        Log::info('WhatsApp createTemplate payload', ['payload' => $payload]);
+
         try {
             $response = Http::withHeaders($this->headers())
                 ->post("{$this->baseUrl}/{$this->device->waba_id}/message_templates", $payload);
 
             $result = $response->json();
+            Log::info('WhatsApp createTemplate response', ['status' => $response->status(), 'body' => $result]);
 
             if ($response->successful()) {
                 return ['success' => true, 'data' => $result];
@@ -51,6 +126,7 @@ class WhatsAppService
                 'error' => $result['error']['message'] ?? 'Unknown error',
                 'error_code' => $result['error']['code'] ?? 0,
                 'error_detail' => $result['error']['error_user_msg'] ?? ($result['error']['error_data']['details'] ?? ''),
+                'full_response' => $result, // Save full JSON for debugging
             ];
         } catch (\Exception $e) {
             Log::error('WhatsApp createTemplate error: ' . $e->getMessage());
@@ -71,10 +147,10 @@ class WhatsAppService
             if ($data['header_type'] === 'TEXT') {
                 $header['text'] = $data['header_content'] ?? '';
             } elseif (in_array($data['header_type'], ['IMAGE', 'VIDEO', 'DOCUMENT'])) {
-                // For media headers, include example if URL is provided
-                if (!empty($data['header_media_url'])) {
+                // For media headers, use the uploaded handle from Resumable Upload API
+                if (!empty($data['header_handle'])) {
                     $header['example'] = [
-                        'header_handle' => [$data['header_media_url']],
+                        'header_handle' => [$data['header_handle']],
                     ];
                 }
             }
