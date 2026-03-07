@@ -237,6 +237,8 @@
 </div>
 @endif
 
+@endsection
+
 @section('scripts')
 <!-- Midtrans Snap JS -->
 <script src="{{ config('app.env') == 'production' ? 'https://app.midtrans.com/snap/snap.js' : 'https://app.sandbox.midtrans.com/snap/snap.js' }}" data-client-key="{{ config('services.midtrans.client_key') }}"></script>
