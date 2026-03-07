@@ -42,6 +42,7 @@ class TemplateController extends Controller
             'category' => 'required|in:MARKETING,UTILITY,AUTHENTICATION',
             'header_type' => 'required|in:NONE,TEXT,IMAGE,VIDEO,DOCUMENT',
             'header_content' => 'nullable|string',
+            'header_media_url' => 'nullable|url',
             'body' => 'required|string',
             'footer' => 'nullable|string|max:60',
         ]);

@@ -8,7 +8,7 @@
         <h3><i class="bi bi-plus-circle-fill" style="color:var(--accent);margin-right:8px;"></i> Buat Message Template</h3>
     </div>
 
-    <form method="POST" action="{{ route('templates.store') }}">
+    <form method="POST" action="{{ route('templates.store') }}" enctype="multipart/form-data">
         @csrf
         <div class="form-grid">
             <div class="form-group">
@@ -57,8 +57,13 @@
                 </select>
             </div>
             <div class="form-group" id="headerContent" style="display:none;">
-                <label class="form-label">Header Content</label>
+                <label class="form-label">Header Text</label>
                 <input type="text" name="header_content" class="form-control" placeholder="Teks header" value="{{ old('header_content') }}">
+            </div>
+            <div class="form-group" id="headerMedia" style="display:none;">
+                <label class="form-label">Media URL (contoh)</label>
+                <input type="url" name="header_media_url" class="form-control" placeholder="https://example.com/image.jpg" value="{{ old('header_media_url') }}">
+                <div class="form-hint">Masukkan URL publik untuk gambar/video/dokumen sebagai contoh saat review oleh Meta. Media sebenarnya akan dikirim saat broadcast.</div>
             </div>
         </div>
 
@@ -100,6 +105,7 @@
 function toggleHeader() {
     const type = document.getElementById('headerType').value;
     document.getElementById('headerContent').style.display = type === 'TEXT' ? 'block' : 'none';
+    document.getElementById('headerMedia').style.display = ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(type) ? 'block' : 'none';
 }
 toggleHeader();
 

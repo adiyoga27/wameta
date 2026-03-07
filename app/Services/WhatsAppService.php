@@ -70,6 +70,13 @@ class WhatsAppService
             $header = ['type' => 'HEADER', 'format' => $data['header_type']];
             if ($data['header_type'] === 'TEXT') {
                 $header['text'] = $data['header_content'] ?? '';
+            } elseif (in_array($data['header_type'], ['IMAGE', 'VIDEO', 'DOCUMENT'])) {
+                // For media headers, include example if URL is provided
+                if (!empty($data['header_media_url'])) {
+                    $header['example'] = [
+                        'header_handle' => [$data['header_media_url']],
+                    ];
+                }
             }
             $components[] = $header;
         }
