@@ -17,13 +17,15 @@
     <div class="chat-sidebar">
         <div class="chat-sidebar-header">
             <h4 style="font-size:15px;font-weight:700;"><i class="bi bi-chat-dots-fill" style="color:var(--accent);margin-right:6px;"></i> Percakapan</h4>
-            <span style="font-size:12px;color:var(--text-muted);">{{ $conversations->count() }} kontak</span>
+            <button class="btn btn-primary btn-sm" onclick="document.getElementById('newChatModal').style.display='flex'" style="padding:5px 12px;font-size:12px;">
+                <i class="bi bi-plus-lg"></i> Baru
+            </button>
         </div>
         @if($conversations->isEmpty())
             <div class="empty-state" style="padding:40px 20px;">
                 <i class="bi bi-chat-dots" style="font-size:36px;"></i>
                 <h4 style="font-size:14px;">Belum ada percakapan</h4>
-                <p style="font-size:12px;">Pesan akan muncul saat ada webhook masuk</p>
+                <p style="font-size:12px;">Klik "Baru" untuk memulai chat baru</p>
             </div>
         @else
             <div class="conversation-list">
@@ -57,9 +59,39 @@
             <div style="text-align:center;color:var(--text-muted);">
                 <i class="bi bi-chat-dots" style="font-size:64px;opacity:0.2;display:block;margin-bottom:16px;"></i>
                 <h3 style="font-size:18px;color:var(--text-secondary);margin-bottom:8px;">Pilih percakapan</h3>
-                <p style="font-size:13px;">Pilih kontak di sebelah kiri untuk mulai chat</p>
+                <p style="font-size:13px;margin-bottom:20px;">Pilih kontak di sebelah kiri untuk mulai chat</p>
+                <button class="btn btn-primary" onclick="document.getElementById('newChatModal').style.display='flex'">
+                    <i class="bi bi-plus-lg"></i> Chat Baru
+                </button>
             </div>
         </div>
+    </div>
+</div>
+
+{{-- New Chat Modal --}}
+<div class="modal-overlay" id="newChatModal" style="display:none;">
+    <div class="modal-content" style="max-width:420px;">
+        <div class="modal-header">
+            <h3><i class="bi bi-chat-plus" style="color:var(--accent);margin-right:8px;"></i> Chat Baru</h3>
+            <button class="modal-close" onclick="document.getElementById('newChatModal').style.display='none'">&times;</button>
+        </div>
+        <form method="POST" action="{{ route('messages.send') }}">
+            @csrf
+            <input type="hidden" name="device_id" value="{{ $deviceId }}">
+            <div class="form-group">
+                <label class="form-label">Nomor WhatsApp</label>
+                <input type="text" name="contact_number" class="form-control" placeholder="628xxxxxxxxxx" required pattern="[0-9]+" title="Masukkan nomor tanpa + atau spasi">
+                <div class="form-hint">Format: 628xxxxxxxxxx (tanpa + atau spasi)</div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Pesan</label>
+                <textarea name="message" class="form-control" rows="3" placeholder="Ketik pesan pertama..." required style="resize:vertical;"></textarea>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-send-fill"></i> Kirim</button>
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('newChatModal').style.display='none'">Batal</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -80,6 +112,11 @@
 .conv-badge { background:var(--accent); color:#000; font-size:10px; font-weight:700; padding:2px 7px; border-radius:10px; display:inline-block; }
 .chat-main { flex:1; display:flex; align-items:center; justify-content:center; }
 .chat-empty-state { padding:40px; }
+.modal-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
+.modal-content { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:24px; width:90%; }
+.modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+.modal-header h3 { font-size:16px; font-weight:700; }
+.modal-close { background:none; border:none; color:var(--text-muted); font-size:24px; cursor:pointer; line-height:1; }
 @media (max-width:768px) {
     .chat-sidebar { width:100%; min-width:100%; }
     .chat-main { display:none; }
