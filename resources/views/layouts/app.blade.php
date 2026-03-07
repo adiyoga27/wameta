@@ -317,6 +317,13 @@
             <a href="{{ route('messages.index') }}" class="nav-item {{ request()->routeIs('messages.*') ? 'active' : '' }}">
                 <i class="bi bi-chat-dots-fill"></i> Pesan Masuk
             </a>
+
+            @if(auth()->user()->isSuperAdmin())
+            <div class="nav-section">Developer</div>
+            <a href="{{ route('webhook-logs.index') }}" class="nav-item {{ request()->routeIs('webhook-logs.*') ? 'active' : '' }}">
+                <i class="bi bi-journal-code"></i> Webhook Logs
+            </a>
+            @endif
         </nav>
 
         <div class="sidebar-footer">

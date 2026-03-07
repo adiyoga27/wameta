@@ -9,6 +9,7 @@ use App\Http\Controllers\MessageController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\TopupController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\WebhookLogController;
 use Illuminate\Support\Facades\Route;
 
 // Auth
@@ -25,6 +26,8 @@ Route::middleware('auth')->group(function () {
     Route::middleware(\App\Http\Middleware\SuperAdminMiddleware::class)->group(function () {
         Route::resource('devices', DeviceController::class);
         Route::resource('users', UserController::class);
+        Route::get('/webhook-logs', [WebhookLogController::class, 'index'])->name('webhook-logs.index');
+        Route::get('/webhook-logs/{webhookLog}', [WebhookLogController::class, 'show'])->name('webhook-logs.show');
     });
 
     // Top Up (accessible by both superadmin and admin with device access)
