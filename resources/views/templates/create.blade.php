@@ -61,9 +61,9 @@
                 <input type="text" name="header_content" class="form-control" placeholder="Teks header" value="{{ old('header_content') }}">
             </div>
             <div class="form-group" id="headerMedia" style="display:none;">
-                <label class="form-label">Media URL (contoh)</label>
-                <input type="url" name="header_media_url" class="form-control" placeholder="https://example.com/image.jpg" value="{{ old('header_media_url') }}">
-                <div class="form-hint">Masukkan URL publik untuk gambar/video/dokumen sebagai contoh saat review oleh Meta. Media sebenarnya akan dikirim saat broadcast.</div>
+                <label class="form-label">Upload Media</label>
+                <input type="file" name="header_media" class="form-control" id="headerMediaInput" style="padding:8px;">
+                <div class="form-hint">Upload gambar (JPG/PNG, maks 5MB), video (MP4, maks 16MB), atau dokumen (PDF, maks 100MB).</div>
             </div>
         </div>
 
@@ -104,8 +104,14 @@
 <script>
 function toggleHeader() {
     const type = document.getElementById('headerType').value;
+    const mediaInput = document.getElementById('headerMediaInput');
     document.getElementById('headerContent').style.display = type === 'TEXT' ? 'block' : 'none';
     document.getElementById('headerMedia').style.display = ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(type) ? 'block' : 'none';
+
+    if (type === 'IMAGE') mediaInput.setAttribute('accept', 'image/jpeg,image/png');
+    else if (type === 'VIDEO') mediaInput.setAttribute('accept', 'video/mp4,video/3gpp');
+    else if (type === 'DOCUMENT') mediaInput.setAttribute('accept', '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx');
+    else mediaInput.removeAttribute('accept');
 }
 toggleHeader();
 

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class MessageTemplate extends Model
 {
-    protected $fillable = ['device_id', 'name', 'language', 'category', 'header_type', 'header_content', 'body', 'footer', 'buttons', 'status', 'rejected_reason', 'meta_template_id'];
+    protected $fillable = ['device_id', 'name', 'language', 'category', 'header_type', 'header_content', 'header_media_path', 'body', 'footer', 'buttons', 'status', 'rejected_reason', 'meta_template_id'];
 
     protected $casts = ['buttons' => 'array'];
 

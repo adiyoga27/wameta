@@ -159,6 +159,42 @@ class WhatsAppService
     }
 
     /**
+     * Send a free-form text message
+     */
+    public function sendTextMessage(string $to, string $text): array
+    {
+        $payload = [
+            'messaging_product' => 'whatsapp',
+            'recipient_type' => 'individual',
+            'to' => $to,
+            'type' => 'text',
+            'text' => ['body' => $text],
+        ];
+
+        try {
+            $response = Http::withHeaders($this->headers())
+                ->post("{$this->baseUrl}/{$this->device->phone_number_id}/messages", $payload);
+
+            $result = $response->json();
+
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'message_id' => $result['messages'][0]['id'] ?? null,
+                ];
+            }
+
+            return [
+                'success' => false,
+                'error' => $result['error']['message'] ?? 'Unknown error',
+                'error_code' => $result['error']['code'] ?? 0,
+            ];
+        } catch (\Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
      * Send a template message to a phone number
      */
     public function sendTemplateMessage(string $to, string $templateName, string $language = 'id', array $parameters = []): array

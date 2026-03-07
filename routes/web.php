@@ -56,6 +56,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/contacts/import', [ContactController::class, 'import'])->name('contacts.import');
     Route::delete('/contacts/{contact}', [ContactController::class, 'destroy'])->name('contacts.destroy');
 
-    // Messages
+    // Messages / Chat
     Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
+    Route::get('/messages/{deviceId}/{contactNumber}', [MessageController::class, 'show'])->name('messages.show');
+    Route::post('/messages/send', [MessageController::class, 'send'])->name('messages.send');
 });

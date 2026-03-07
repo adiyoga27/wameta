@@ -42,10 +42,19 @@ class TemplateController extends Controller
             'category' => 'required|in:MARKETING,UTILITY,AUTHENTICATION',
             'header_type' => 'required|in:NONE,TEXT,IMAGE,VIDEO,DOCUMENT',
             'header_content' => 'nullable|string',
-            'header_media_url' => 'nullable|url',
+            'header_media' => 'nullable|file|max:102400', // max 100MB for documents
             'body' => 'required|string',
             'footer' => 'nullable|string|max:60',
         ]);
+
+        // Handle media file upload
+        $headerMediaPath = null;
+        if ($request->hasFile('header_media') && in_array($data['header_type'], ['IMAGE', 'VIDEO', 'DOCUMENT'])) {
+            $file = $request->file('header_media');
+            $headerMediaPath = $file->store('template-media', 'public');
+            // Pass the public URL for Meta API
+            $data['header_media_url'] = asset('storage/' . $headerMediaPath);
+        }
 
         $device = Device::findOrFail($data['device_id']);
         $waService = new WhatsAppService($device);
@@ -60,6 +69,7 @@ class TemplateController extends Controller
             'category' => $data['category'],
             'header_type' => $data['header_type'],
             'header_content' => $data['header_content'] ?? null,
+            'header_media_path' => $headerMediaPath,
             'body' => $data['body'],
             'footer' => $data['footer'] ?? null,
             'buttons' => $request->input('buttons'),

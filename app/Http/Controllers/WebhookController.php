@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\BroadcastContact;
+use App\Models\ChatMessage;
 use App\Models\Device;
 use App\Models\IncomingMessage;
 use App\Models\WebhookLog;
@@ -217,6 +218,10 @@ class WebhookController extends Controller
                     $messageBody = "[{$messageType}]";
             }
 
+            $waTimestamp = isset($message['timestamp'])
+                ? \Carbon\Carbon::createFromTimestamp($message['timestamp'])
+                : now();
+
             IncomingMessage::create([
                 'device_id' => $device->id,
                 'from_number' => $message['from'],
@@ -225,9 +230,21 @@ class WebhookController extends Controller
                 'message_body' => $messageBody,
                 'media_url' => $mediaUrl,
                 'wa_message_id' => $message['id'] ?? null,
-                'wa_timestamp' => isset($message['timestamp'])
-                    ? \Carbon\Carbon::createFromTimestamp($message['timestamp'])
-                    : now(),
+                'wa_timestamp' => $waTimestamp,
+            ]);
+
+            // Also save to chat_messages for chat UI
+            ChatMessage::create([
+                'device_id' => $device->id,
+                'contact_number' => $message['from'],
+                'contact_name' => $contactName,
+                'direction' => 'in',
+                'message_type' => $messageType,
+                'message_body' => $messageBody,
+                'media_url' => $mediaUrl,
+                'wa_message_id' => $message['id'] ?? null,
+                'wa_timestamp' => $waTimestamp,
+                'status' => 'received',
             ]);
         }
     }
@@ -267,6 +284,12 @@ class WebhookController extends Controller
                             'failed' => $broadcast->broadcastContacts()->where('status', 'failed')->count(),
                         ]);
                     }
+                }
+
+                // Also update chat_messages status
+                $chatMsg = ChatMessage::where('wa_message_id', $waMessageId)->first();
+                if ($chatMsg) {
+                    $chatMsg->update(['status' => $messageStatus]);
                 }
             }
         }
