@@ -71,6 +71,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
     Route::get('/messages/{deviceId}/{contactNumber}', [MessageController::class, 'show'])->name('messages.show');
     Route::post('/messages/send', [MessageController::class, 'send'])->name('messages.send');
+    Route::post('/messages/send-template', [MessageController::class, 'sendTemplate'])->name('messages.sendTemplate');
     Route::post('/messages/{chatMessage}/retry', [MessageController::class, 'retry'])->name('messages.retry');
     Route::get('/messages/{deviceId}/{contactNumber}/poll', [MessageController::class, 'poll'])->name('messages.poll');
 });

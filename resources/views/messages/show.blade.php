@@ -134,10 +134,16 @@
         </div>
 
         {{-- Input Area --}}
-        <div class="chat-input-area">
+        <div class="chat-input-area" style="position: relative;">
+            {{-- Template Popup --}}
+            <div id="templatePopup" class="template-popup" style="display: none;">
+                <div class="template-popup-header"><i class="bi bi-magic" style="margin-right:5px;color:var(--accent);"></i> Pilih Template</div>
+                <div class="template-popup-list" id="templateList"></div>
+            </div>
+
             <form class="chat-input-form" id="chatForm" onsubmit="sendMessage(event)">
                 @csrf
-                <input type="text" name="message" class="chat-input" placeholder="Ketik pesan..." autocomplete="off" required id="messageInput">
+                <input type="text" name="message" class="chat-input" placeholder="Ketik pesan atau ketik / untuk template..." autocomplete="off" required id="messageInput">
                 <button type="submit" class="chat-send-btn" id="sendBtn">
                     <i class="bi bi-send-fill"></i>
                 </button>
@@ -243,6 +249,16 @@
 .modal-header h3 { font-size:16px; font-weight:700; }
 .modal-close { background:none; border:none; color:var(--text-muted); font-size:24px; cursor:pointer; line-height:1; }
 
+/* Template Popup */
+.template-popup { position:absolute; bottom:calc(100% + 10px); left:20px; width:350px; max-height:300px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:0 -5px 15px rgba(0,0,0,0.2); z-index:100; display:flex; flex-direction:column; overflow:hidden; }
+.template-popup-header { padding:12px 16px; background:var(--bg-secondary); border-bottom:1px solid var(--border); font-size:13px; font-weight:700; color:var(--text-primary); }
+.template-popup-list { flex:1; overflow-y:auto; }
+.template-item { padding:14px 16px; border-bottom:1px solid var(--border); cursor:pointer; transition:background 0.15s; }
+.template-item:last-child { border-bottom:none; }
+.template-item:hover, .template-item.active { background:var(--bg-glass); border-left:3px solid var(--accent); padding-left:13px; }
+.template-item-name { font-size:14px; font-weight:700; margin-bottom:4px; color:var(--text-primary); display:flex; justify-content:space-between; align-items:center; }
+.template-item-body { font-size:12px; color:var(--text-muted); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; line-height:1.4; }
+
 @keyframes fadeInUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
 
 @media (max-width:768px) {
@@ -262,7 +278,9 @@ const CONTACT_NUMBER = '{{ $contactNumber }}';
 const CONTACT_NAME = '{{ $contactName }}';
 const CSRF_TOKEN = '{{ csrf_token() }}';
 const SEND_URL = '{{ route("messages.send") }}';
+const SEND_TEMPLATE_URL = '{{ route("messages.sendTemplate") }}';
 const POLL_URL = '{{ route("messages.poll", ["deviceId" => $deviceId, "contactNumber" => $contactNumber]) }}';
+const TEMPLATES = @json($templates ?? []);
 
 let lastMessageId = {{ $messages->last()?->id ?? 0 }};
 const chatMessages = document.getElementById('chatMessages');
@@ -446,13 +464,179 @@ function pollNewMessages() {
     .catch(() => {}); // Silent fail
 }
 
-// Enter to send
-messageInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        document.getElementById('chatForm').dispatchEvent(new Event('submit'));
+// Template Logic
+const templatePopup = document.getElementById('templatePopup');
+const templateList = document.getElementById('templateList');
+
+let isTemplateMode = false;
+let currentTemplateFilter = '';
+let activeTemplateIndex = -1;
+let filteredTemplates = [];
+
+messageInput.addEventListener('input', function(e) {
+    const val = this.value;
+    if (val.startsWith('/')) {
+        isTemplateMode = true;
+        currentTemplateFilter = val.substring(1).toLowerCase();
+        showTemplatePopup();
+    } else {
+        isTemplateMode = false;
+        hideTemplatePopup();
     }
 });
+
+messageInput.addEventListener('keydown', function(e) {
+    if (!isTemplateMode) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            document.getElementById('chatForm').dispatchEvent(new Event('submit'));
+        }
+        return;
+    }
+
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (activeTemplateIndex < filteredTemplates.length - 1) {
+            activeTemplateIndex++;
+            renderTemplateList();
+        }
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (activeTemplateIndex > 0) {
+            activeTemplateIndex--;
+            renderTemplateList();
+        }
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (activeTemplateIndex >= 0 && activeTemplateIndex < filteredTemplates.length) {
+            selectTemplate(filteredTemplates[activeTemplateIndex]);
+        } else if (filteredTemplates.length === 0) {
+            isTemplateMode = false;
+            hideTemplatePopup();
+            document.getElementById('chatForm').dispatchEvent(new Event('submit'));
+        }
+    } else if (e.key === 'Escape') {
+        isTemplateMode = false;
+        hideTemplatePopup();
+    }
+});
+
+function showTemplatePopup() {
+    filteredTemplates = TEMPLATES.filter(t => t.name.toLowerCase().includes(currentTemplateFilter));
+    activeTemplateIndex = filteredTemplates.length > 0 ? 0 : -1;
+    
+    renderTemplateList();
+    templatePopup.style.display = 'flex';
+}
+
+function hideTemplatePopup() {
+    templatePopup.style.display = 'none';
+}
+
+function renderTemplateList() {
+    templateList.innerHTML = '';
+    
+    if (filteredTemplates.length === 0) {
+        templateList.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 13px;">Tidak ada template yang cocok</div>';
+        return;
+    }
+    
+    filteredTemplates.forEach((t, index) => {
+        const item = document.createElement('div');
+        item.className = 'template-item' + (index === activeTemplateIndex ? ' active' : '');
+        item.innerHTML = `
+            <div class="template-item-name">
+                <span>${escapeHtml(t.name)}</span>
+                <span style="font-size:10px;font-weight:normal;color:var(--text-muted);"><i class="bi bi-arrow-return-left"></i> Send</span>
+            </div>
+            <div class="template-item-body">${escapeHtml(t.body || '')}</div>
+        `;
+        
+        item.addEventListener('click', () => {
+            selectTemplate(t);
+        });
+        
+        // Scroll into view if active
+        if (index === activeTemplateIndex) {
+            const listRect = templateList.getBoundingClientRect();
+            const itemRect = item.getBoundingClientRect();
+            
+            if (itemRect.bottom > listRect.bottom) {
+                templateList.scrollTop += (itemRect.bottom - listRect.bottom);
+            } else if (itemRect.top < listRect.top) {
+                templateList.scrollTop -= (listRect.top - itemRect.top);
+            }
+        }
+        
+        templateList.appendChild(item);
+    });
+}
+
+function selectTemplate(template) {
+    hideTemplatePopup();
+    isTemplateMode = false;
+    messageInput.value = ''; // clear input
+    
+    sendTemplateMessage(template.id, template.name, template.body);
+}
+
+function sendTemplateMessage(templateId, templateName, templateBody) {
+    sendBtn.disabled = true;
+    messageInput.disabled = true;
+
+    const tempId = 'temp-' + Date.now();
+    appendBubble({
+        id: tempId,
+        direction: 'out',
+        message_type: 'template',
+        message_body: `[Template: ${templateName}]\n${templateBody}`,
+        status: 'sending',
+        wa_timestamp: new Date().toISOString(),
+    });
+    scrollToBottom();
+
+    fetch(SEND_TEMPLATE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' },
+        body: JSON.stringify({ device_id: DEVICE_ID, contact_number: CONTACT_NUMBER, template_id: templateId })
+    })
+    .then(r => r.json())
+    .then(data => {
+        const tempEl = document.querySelector(`[data-msg-id="${tempId}"]`);
+        if (tempEl) tempEl.remove();
+
+        if (data.message) {
+            appendBubble(data.message);
+            lastMessageId = Math.max(lastMessageId, data.message.id);
+        }
+
+        if (!data.success && data.error) {
+            showToast('Gagal: ' + data.error, 'error');
+        } else if (data.success) {
+            showToast('Template berhasil dikirim!', 'success');
+        }
+        scrollToBottom();
+    })
+    .catch(err => {
+        const tempEl = document.querySelector(`[data-msg-id="${tempId}"]`);
+        if (tempEl) tempEl.remove();
+        showToast('Gagal mengirim template', 'error');
+    })
+    .finally(() => {
+        sendBtn.disabled = false;
+        messageInput.disabled = false;
+        messageInput.focus();
+    });
+}
+
+// Enter to send (Text) - Already handled in keydown
+// Remove old Enter to send listener to avoid duplicate submissions
+// messageInput.addEventListener('keydown', function(e) {
+//     if (e.key === 'Enter' && !e.shiftKey) {
+//         e.preventDefault();
+//         document.getElementById('chatForm').dispatchEvent(new Event('submit'));
+//     }
+// });
 
 // Cleanup polling on page leave
 window.addEventListener('beforeunload', () => clearInterval(pollInterval));

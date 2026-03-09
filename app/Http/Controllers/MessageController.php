@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ChatMessage;
 use App\Models\Device;
+use App\Models\MessageTemplate;
 use App\Services\WhatsAppService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -69,8 +70,12 @@ class MessageController extends Controller
         $contactName = $messages->last()?->contact_name ?? $contactNumber;
         $conversations = $this->getConversations($deviceId);
 
+        $templates = MessageTemplate::where('device_id', $deviceId)
+            ->where('status', 'APPROVED')
+            ->get();
+
         return view('messages.show', compact(
-            'messages', 'conversations', 'devices', 'deviceId', 'contactNumber', 'contactName', 'device'
+            'messages', 'conversations', 'devices', 'deviceId', 'contactNumber', 'contactName', 'device', 'templates'
         ));
     }
 
@@ -130,6 +135,81 @@ class MessageController extends Controller
         }
 
         return redirect()->back()->with('error', 'Gagal mengirim: ' . ($result['error'] ?? 'Unknown'));
+    }
+
+    /**
+     * Send a template message (AJAX)
+     */
+    public function sendTemplate(Request $request)
+    {
+        $request->validate([
+            'device_id' => 'required|exists:devices,id',
+            'contact_number' => 'required|string',
+            'template_id' => 'required|exists:message_templates,id',
+        ]);
+
+        $device = Device::findOrFail($request->device_id);
+        
+        if ($device->balance <= 0) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Saldo perangkat tidak mencukupi (Rp 0 atau kurang).',
+            ]);
+        }
+        
+        $template = MessageTemplate::where('id', $request->template_id)
+            ->where('device_id', $device->id)
+            ->firstOrFail();
+
+        $waService = new WhatsAppService($device);
+
+        $headerData = [];
+        if (in_array($template->header_type, ['IMAGE', 'VIDEO', 'DOCUMENT']) && $template->header_media_path) {
+            $filePath = storage_path('app/public/' . $template->header_media_path);
+            if (file_exists($filePath)) {
+                $mimeType = mime_content_type($filePath);
+                $uploadResult = $waService->uploadMedia($filePath, $mimeType);
+                
+                if ($uploadResult['success']) {
+                    $mediaId = $uploadResult['media_id'];
+                    $typeKey = strtolower($template->header_type);
+                    $headerData = [
+                        'type' => $typeKey,
+                        $typeKey => ['id' => $mediaId]
+                    ];
+                } else {
+                    return response()->json([
+                        'success' => false,
+                        'error' => 'Gagal memproses media template: ' . ($uploadResult['error'] ?? 'Unknown error'),
+                    ]);
+                }
+            }
+        }
+
+        $result = $waService->sendTemplateMessage(
+            $request->contact_number,
+            $template->name,
+            $template->language,
+            [],
+            $headerData
+        );
+
+        $chatMsg = ChatMessage::create([
+            'device_id' => $device->id,
+            'contact_number' => $request->contact_number,
+            'direction' => 'out',
+            'message_type' => 'template',
+            'message_body' => "[Template: {$template->name}]\n" . $template->body,
+            'wa_message_id' => $result['message_id'] ?? null,
+            'wa_timestamp' => now(),
+            'status' => $result['success'] ? 'sent' : 'failed',
+        ]);
+
+        return response()->json([
+            'success' => $result['success'],
+            'message' => $chatMsg,
+            'error' => $result['error'] ?? null,
+        ]);
     }
 
     /**
