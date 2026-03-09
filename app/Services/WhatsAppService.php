@@ -387,6 +387,48 @@ class WhatsAppService
     }
 
     /**
+     * Send a media message (image, video, document, audio)
+     */
+    public function sendMediaMessage(string $to, string $type, string $mediaId, ?string $caption = null): array
+    {
+        $payload = [
+            'messaging_product' => 'whatsapp',
+            'recipient_type' => 'individual',
+            'to' => $to,
+            'type' => $type, // 'image', 'video', 'document', 'audio'
+            $type => [
+                'id' => $mediaId
+            ]
+        ];
+
+        if ($caption && in_array($type, ['image', 'video', 'document'])) {
+            $payload[$type]['caption'] = $caption;
+        }
+
+        try {
+            $response = Http::withHeaders($this->headers())
+                ->post("{$this->baseUrl}/{$this->device->phone_number_id}/messages", $payload);
+
+            $result = $response->json();
+
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'message_id' => $result['messages'][0]['id'] ?? null,
+                ];
+            }
+
+            return [
+                'success' => false,
+                'error' => $result['error']['message'] ?? 'Unknown error',
+                'error_code' => $result['error']['code'] ?? 0,
+            ];
+        } catch (\Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
      * Send a template message to a phone number
      */
     public function sendTemplateMessage(string $to, string $templateName, string $language = 'id', array $parameters = [], array $headerData = []): array

@@ -87,7 +87,8 @@ class MessageController extends Controller
         $request->validate([
             'device_id' => 'required|exists:devices,id',
             'contact_number' => 'required|string',
-            'message' => 'required|string|max:4096',
+            'message' => 'nullable|string|max:4096',
+            'media_file' => 'nullable|file|max:16384', // 16MB max limit for most WA media
         ]);
 
         $device = Device::findOrFail($request->device_id);
@@ -105,14 +106,67 @@ class MessageController extends Controller
 
         $waService = new WhatsAppService($device);
 
-        $result = $waService->sendTextMessage($request->contact_number, $request->message);
+        $result = null;
+        $messageType = 'text';
+        $mediaUrl = null;
+
+        if ($request->hasFile('media_file')) {
+            $file = $request->file('media_file');
+            $mimeType = $file->getMimeType();
+            
+            // Determine type
+            if (str_starts_with($mimeType, 'image/')) {
+                $messageType = 'image';
+            } elseif (str_starts_with($mimeType, 'video/')) {
+                $messageType = 'video';
+            } elseif (str_starts_with($mimeType, 'audio/')) {
+                $messageType = 'audio';
+            } else {
+                $messageType = 'document';
+            }
+
+            // Save locally and get path
+            $path = $file->store('wa_media', 'public');
+            $fullPath = storage_path('app/public/' . $path);
+            $mediaUrl = $path;
+
+            // Upload to Meta Server First
+            $uploadResult = $waService->uploadMedia($fullPath, $mimeType);
+            
+            if (!$uploadResult['success']) {
+                if ($request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'error' => 'Gagal mengunggah media ke WhatsApp: ' . ($uploadResult['error'] ?? 'Unknown Error'),
+                    ]);
+                }
+                return redirect()->back()->with('error', 'Gagal mengunggah media: ' . ($uploadResult['error'] ?? 'Unknown error'));
+            }
+
+            $mediaId = $uploadResult['media_id'];
+            
+            // Send Media Message
+            $result = $waService->sendMediaMessage(
+                $request->contact_number,
+                $messageType,
+                $mediaId,
+                $request->message // pass as caption
+            );
+
+        } else {
+            if (empty($request->message)) {
+                return response()->json(['success' => false, 'error' => 'Pesan atau Media harus diisi.']);
+            }
+            $result = $waService->sendTextMessage($request->contact_number, $request->message);
+        }
 
         $chatMsg = ChatMessage::create([
             'device_id' => $device->id,
             'contact_number' => $request->contact_number,
             'direction' => 'out',
-            'message_type' => 'text',
+            'message_type' => $messageType,
             'message_body' => $request->message,
+            'media_url' => $mediaUrl,
             'wa_message_id' => $result['message_id'] ?? null,
             'wa_timestamp' => now(),
             'status' => $result['success'] ? 'sent' : 'failed',

@@ -163,9 +163,24 @@
                 <div class="template-popup-list" id="templateList"></div>
             </div>
 
-            <form class="chat-input-form" id="chatForm" onsubmit="sendMessage(event)">
+            {{-- Media Preview Area --}}
+            <div id="mediaPreview" style="display: none; padding: 10px; background: var(--bg-secondary); border-radius: 8px 8px 0 0; border: 1px solid var(--border); border-bottom: none; display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 10px; overflow: hidden;">
+                    <i class="bi bi-file-earmark-fill" style="font-size: 24px; color: var(--accent);"></i>
+                    <span id="mediaFileName" style="font-size: 13px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;">filename.jpg</span>
+                </div>
+                <button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="clearMedia()">
+                    <i class="bi bi-x-circle-fill" style="font-size: 18px;"></i>
+                </button>
+            </div>
+
+            <form class="chat-input-form" id="chatForm" onsubmit="sendMessage(event)" style="border-radius: 0 0 20px 20px;">
                 @csrf
-                <input type="text" name="message" class="chat-input" placeholder="Ketik pesan atau ketik / untuk template..." autocomplete="off" required id="messageInput">
+                <input type="file" id="mediaInput" name="media_file" class="d-none" onchange="handleMediaSelect(this)">
+                <button type="button" class="chat-attach-btn" onclick="document.getElementById('mediaInput').click()" title="Lampirkan File">
+                    <i class="bi bi-paperclip"></i>
+                </button>
+                <input type="text" name="message" class="chat-input" placeholder="Ketik pesan atau ketik / untuk template..." autocomplete="off" id="messageInput">
                 <button type="submit" class="chat-send-btn" id="sendBtn">
                     <i class="bi bi-send-fill"></i>
                 </button>
@@ -308,6 +323,35 @@ let lastMessageId = {{ $messages->last()?->id ?? 0 }};
 const chatMessages = document.getElementById('chatMessages');
 const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
+const mediaInput = document.getElementById('mediaInput');
+const mediaPreview = document.getElementById('mediaPreview');
+const mediaFileName = document.getElementById('mediaFileName');
+
+// Media handling
+function handleMediaSelect(input) {
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        
+        // Cek ukuran file max 16MB
+        if (file.size > 16 * 1024 * 1024) {
+            Swal.fire('Ukuran file kebesaran', 'Batas maksimal file adalah 16MB', 'warning');
+            clearMedia();
+            return;
+        }
+
+        mediaFileName.textContent = file.name;
+        mediaPreview.style.display = 'flex';
+        messageInput.placeholder = 'Tambahkan keterangan (opsional)...';
+        messageInput.focus();
+    }
+}
+
+function clearMedia() {
+    mediaInput.value = '';
+    mediaFileName.textContent = '';
+    mediaPreview.style.display = 'none';
+    messageInput.placeholder = 'Ketik pesan atau ketik / untuk template...';
+}
 
 // Auto-scroll to bottom
 function scrollToBottom() {
@@ -320,28 +364,43 @@ messageInput.focus();
 function sendMessage(e) {
     e.preventDefault();
     const msg = messageInput.value.trim();
-    if (!msg) return;
+    const hasMedia = mediaInput.files && mediaInput.files[0];
+    
+    if (!msg && !hasMedia) return;
 
     sendBtn.disabled = true;
     messageInput.disabled = true;
 
     // Optimistic: add bubble immediately
     const tempId = 'temp-' + Date.now();
+    let optMsg = msg;
+    if (hasMedia) optMsg = '⏳ Mengunggah media... ' + msg;
+    
     appendBubble({
         id: tempId,
         direction: 'out',
-        message_type: 'text',
-        message_body: msg,
+        message_type: hasMedia ? 'document' : 'text',
+        message_body: optMsg,
         status: 'sending',
         wa_timestamp: new Date().toISOString(),
     });
+    
+    // Siapkan FormData
+    const formData = new FormData();
+    formData.append('device_id', DEVICE_ID);
+    formData.append('contact_number', CONTACT_NUMBER);
+    if (msg) formData.append('message', msg);
+    if (hasMedia) formData.append('media_file', mediaInput.files[0]);
+
+    // Kosongkan UI input secara optimis
     messageInput.value = '';
+    clearMedia();
     scrollToBottom();
 
     fetch(SEND_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' },
-        body: JSON.stringify({ device_id: DEVICE_ID, contact_number: CONTACT_NUMBER, message: msg })
+        headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' },
+        body: formData
     })
     .then(r => r.json())
     .then(data => {
