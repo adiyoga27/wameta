@@ -320,9 +320,7 @@
 
             @if(auth()->user()->isSuperAdmin())
             <div class="nav-section">Developer</div>
-            <a href="{{ route('settings.index') }}" class="nav-item {{ request()->routeIs('settings.*') ? 'active' : '' }}">
-                <i class="bi bi-tags-fill"></i> Meta Pricing
-            </a>
+
             <a href="{{ route('webhook-logs.index') }}" class="nav-item {{ request()->routeIs('webhook-logs.*') ? 'active' : '' }}">
                 <i class="bi bi-journal-code"></i> Webhook Logs
             </a>
