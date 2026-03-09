@@ -32,6 +32,10 @@ class DeviceController extends Controller
             'access_token' => 'nullable|string',
             'app_id' => 'nullable|string',
             'app_secret' => 'nullable|string',
+            'pricing_marketing' => 'nullable|numeric|min:0',
+            'pricing_utility' => 'nullable|numeric|min:0',
+            'pricing_authentication' => 'nullable|numeric|min:0',
+            'pricing_service' => 'nullable|numeric|min:0',
         ]);
 
         $data['webhook_verify_token'] = Str::random(32);
@@ -91,6 +95,10 @@ class DeviceController extends Controller
             'access_token' => 'nullable|string',
             'app_id' => 'nullable|string',
             'app_secret' => 'nullable|string',
+            'pricing_marketing' => 'nullable|numeric|min:0',
+            'pricing_utility' => 'nullable|numeric|min:0',
+            'pricing_authentication' => 'nullable|numeric|min:0',
+            'pricing_service' => 'nullable|numeric|min:0',
         ]);
 
         $device->update($data);

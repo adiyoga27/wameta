@@ -308,7 +308,8 @@ class WebhookController extends Controller
                     // 1. Broadcasts: always billable based on template category
                     if ($bc && !$bc->is_billed) {
                         $category = strtolower($bc->broadcast->messageTemplate->category ?? 'service');
-                        $rate = \App\Models\Setting::getValue('meta_pricing_' . $category, 0);
+                        $pricingProperty = 'pricing_' . $category;
+                        $rate = floatval($device->$pricingProperty ?? 0);
                         
                         $device->decrement('balance', $rate);
                         $bc->update(['is_billed' => true]);
@@ -323,8 +324,9 @@ class WebhookController extends Controller
                         if (isset($status['pricing'])) {
                             $isBillable = isset($status['pricing']['billable']) && filter_var($status['pricing']['billable'], FILTER_VALIDATE_BOOLEAN);
                             $category = strtolower($status['pricing']['category'] ?? 'service');
+                            $pricingProperty = 'pricing_' . $category;
                             if ($isBillable) {
-                                $rate = \App\Models\Setting::getValue('meta_pricing_' . $category, 0);
+                                $rate = floatval($device->$pricingProperty ?? 0);
                             }
                         } else {
                             // Fallback if no pricing object in delivered webhook
