@@ -134,6 +134,8 @@ class TopupController extends Controller
      */
     public function notification(Request $request)
     {
+        Log::info('Midtrans Webhook Received', $request->all());
+
         try {
             $midtrans = new MidtransService();
             $notification = $midtrans->handleNotification();

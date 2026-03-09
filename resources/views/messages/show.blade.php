@@ -164,19 +164,24 @@
             </div>
 
             {{-- Media Preview Area --}}
-            <div id="mediaPreview" style="display: none; padding: 10px; background: var(--bg-secondary); border-radius: 8px 8px 0 0; border: 1px solid var(--border); border-bottom: none; display: flex; align-items: center; justify-content: space-between;">
-                <div style="display: flex; align-items: center; gap: 10px; overflow: hidden;">
-                    <i class="bi bi-file-earmark-fill" style="font-size: 24px; color: var(--accent);"></i>
-                    <span id="mediaFileName" style="font-size: 13px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;">filename.jpg</span>
+            <div id="mediaPreview" style="display: none; padding: 12px 16px; background: var(--bg-card); border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.15); margin-bottom: 15px; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 15px; overflow: hidden;">
+                    <div style="width: 44px; height: 44px; border-radius: 10px; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center; border: 1px solid var(--border);">
+                        <i class="bi bi-file-earmark-text-fill" style="font-size: 20px; color: var(--accent);"></i>
+                    </div>
+                    <div style="display: flex; flex-direction: column;">
+                        <span id="mediaFileName" style="font-size: 14px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;">filename.jpg</span>
+                        <span style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Terlampir</span>
+                    </div>
                 </div>
-                <button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="clearMedia()">
-                    <i class="bi bi-x-circle-fill" style="font-size: 18px;"></i>
+                <button type="button" class="btn-close-preview" onclick="clearMedia()">
+                    <i class="bi bi-x" style="font-size: 20px;"></i>
                 </button>
             </div>
 
-            <form class="chat-input-form" id="chatForm" onsubmit="sendMessage(event)" style="border-radius: 0 0 20px 20px;">
+            <form class="chat-input-form" id="chatForm" onsubmit="sendMessage(event)">
                 @csrf
-                <input type="file" id="mediaInput" name="media_file" class="d-none" onchange="handleMediaSelect(this)">
+                <input type="file" id="mediaInput" name="media_file" style="display: none;" onchange="handleMediaSelect(this)">
                 <button type="button" class="chat-attach-btn" onclick="document.getElementById('mediaInput').click()" title="Lampirkan File">
                     <i class="bi bi-paperclip"></i>
                 </button>
@@ -271,13 +276,16 @@
 
 /* Input */
 .chat-input-area { padding:12px 20px; border-top:1px solid var(--border); background:var(--bg-secondary); }
-.chat-input-form { display:flex; gap:10px; align-items:center; }
-.chat-input { flex:1; padding:12px 16px; background:var(--bg-primary); border:1px solid var(--border); border-radius:24px; color:var(--text-primary); font-size:14px; font-family:'Inter',sans-serif; outline:none; transition:border-color 0.2s; }
-.chat-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+.chat-input-form { display:flex; gap:10px; align-items:center; background:var(--bg-card); padding:8px; border-radius:30px; border:1px solid var(--border); }
+.chat-input { flex:1; padding:8px 12px; background:transparent; border:none; color:var(--text-primary); font-size:14px; font-family:'Inter',sans-serif; outline:none; }
 .chat-input::placeholder { color:var(--text-muted); }
-.chat-send-btn { width:44px; height:44px; min-width:44px; border-radius:50%; background:var(--accent); border:none; color:#000; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; }
+.chat-attach-btn { background:none; border:none; color:var(--text-muted); width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:0.2s; font-size: 20px; outline:none; }
+.chat-attach-btn:hover { background:var(--bg-glass); color:var(--accent); }
+.chat-send-btn { width:40px; height:40px; min-width:40px; border-radius:50%; background:var(--accent); border:none; color:#000; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; outline:none; }
 .chat-send-btn:hover { background:var(--accent-hover); transform:scale(1.05); }
 .chat-send-btn:disabled { opacity:0.5; transform:none; cursor:not-allowed; }
+.btn-close-preview { background:rgba(255,68,68,0.1); border:none; color:#ff4444; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:0.2s; outline:none; }
+.btn-close-preview:hover { background:#ff4444; color:#fff; }
 
 /* Modal */
 .modal-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
