@@ -61,6 +61,13 @@ class MessageController extends Controller
         $devices = $this->getDevices();
         $device = Device::findOrFail($deviceId);
 
+        // Mark incoming unread messages as read
+        ChatMessage::where('device_id', $deviceId)
+            ->where('contact_number', $contactNumber)
+            ->where('direction', 'in')
+            ->where('status', 'received')
+            ->update(['status' => 'read']);
+
         $messages = ChatMessage::where('device_id', $deviceId)
             ->where('contact_number', $contactNumber)
             ->orderBy('wa_timestamp', 'asc')
@@ -316,6 +323,12 @@ class MessageController extends Controller
             ->where('id', '>', $afterId)
             ->orderBy('id', 'asc')
             ->get();
+
+        // Mark incoming newly polled messages as read since they are being displayed in the active chat window
+        $incomingIds = $newMessages->where('direction', 'in')->where('status', 'received')->pluck('id');
+        if ($incomingIds->isNotEmpty()) {
+            ChatMessage::whereIn('id', $incomingIds)->update(['status' => 'read']);
+        }
 
         return response()->json([
             'messages' => $newMessages,

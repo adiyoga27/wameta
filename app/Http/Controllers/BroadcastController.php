@@ -101,7 +101,10 @@ class BroadcastController extends Controller
             ? \App\Models\ContactCategory::all()
             : \App\Models\ContactCategory::where('user_id', $user->id)->get();
 
-        return view('broadcasts.show', compact('broadcast', 'contacts', 'categories'));
+        $templateCategory = strtolower($broadcast->messageTemplate->category ?? 'service');
+        $msgRate = \App\Models\Setting::getValue('meta_pricing_' . $templateCategory, 0);
+
+        return view('broadcasts.show', compact('broadcast', 'contacts', 'categories', 'msgRate', 'templateCategory'));
     }
 
     public function send(Broadcast $broadcast)

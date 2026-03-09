@@ -51,7 +51,7 @@
                 $pendingOrFailed = $broadcast->broadcastContacts()->whereIn('status', ['pending', 'failed'])->count();
             @endphp
             @if(in_array($broadcast->status, ['draft', 'completed', 'failed']) && $pendingOrFailed > 0)
-                <form method="POST" action="{{ route('broadcasts.send', $broadcast) }}" onsubmit="return confirm('Yakin kirim/ulang pesan ke {{ $pendingOrFailed }} kontak (pending/gagal) ini?')">
+                <form method="POST" action="{{ route('broadcasts.send', $broadcast) }}" onsubmit="return confirm('Peringatan Biaya:\n\nEstimasi pengiriman untuk {{ $pendingOrFailed }} kontak ini adalah Rp {{ number_format($pendingOrFailed * $msgRate, 0, ',', '.') }}.\n(Saldo hanya akan terpotong secara real-time saat pesan berhasil diterima/Delivered).\n\nLanjutkan?')">
                     @csrf
                     <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-send-fill"></i> Kirim / Kirim Ulang</button>
                 </form>
@@ -72,8 +72,23 @@
             <span>{{ $broadcast->user->name ?? '-' }}</span>
         </div>
         <div>
-            <span style="color:var(--text-muted);">Tanggal:</span>
+            <span style="color:var(--text-muted);">Kategori / Tarif:</span>
+            <span style="text-transform: capitalize;">{{ $templateCategory }} (Rp {{ number_format($msgRate, 0, ',', '.') }}/msg)</span>
+        </div>
+        <div>
+            <span style="color:var(--text-muted);">Tanggal Buat:</span>
             <span>{{ $broadcast->created_at->format('d M Y H:i') }}</span>
+        </div>
+        <div>
+            @php 
+                $actualBilled = $broadcast->broadcastContacts()->where('is_billed', true)->count() * $msgRate; 
+                $estimatePending = $pendingOrFailed * $msgRate;
+            @endphp
+            <span style="color:var(--text-muted);">Biaya (Estimasi / Terpakai):</span>
+            <span style="font-weight:600; color:var(--accent);">
+                Rp {{ number_format($estimatePending, 0, ',', '.') }} / 
+                <span class="text-success">Rp {{ number_format($actualBilled, 0, ',', '.') }}</span>
+            </span>
         </div>
     </div>
 </div>

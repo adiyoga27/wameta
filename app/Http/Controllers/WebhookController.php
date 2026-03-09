@@ -303,23 +303,43 @@ class WebhookController extends Controller
                     $chatMsg->update(['status' => $messageStatus]);
                 }
 
-                // Handle Billing Deduction from Meta's Pricing Object
-                $isBillable = isset($status['pricing']['billable']) && filter_var($status['pricing']['billable'], FILTER_VALIDATE_BOOLEAN);
-                if (isset($status['pricing']) && $isBillable) {
-                    $category = strtolower($status['pricing']['category'] ?? 'service');
-                    
-                    // Allow simple matching (marketing, utility, authentication, service)
-                    $rate = \App\Models\Setting::getValue('meta_pricing_' . $category, 0);
-
-                    // Deduct balance if not already billed
+                // Handle Billing Deduction ONLY on Delivered or Read status
+                if (in_array($messageStatus, ['delivered', 'read'])) {
+                    // 1. Broadcasts: always billable based on template category
                     if ($bc && !$bc->is_billed) {
+                        $category = strtolower($bc->broadcast->messageTemplate->category ?? 'service');
+                        $rate = \App\Models\Setting::getValue('meta_pricing_' . $category, 0);
+                        
                         $device->decrement('balance', $rate);
                         $bc->update(['is_billed' => true]);
-                        Log::info("Billed {$rate} IDR to device {$device->name} for {$category} broadcast message.");
-                    } elseif ($chatMsg && $chatMsg->direction === 'out' && !$chatMsg->is_billed) {
-                        $device->decrement('balance', $rate);
+                        Log::info("Billed {$rate} IDR to device {$device->name} for {$category} broadcast message on Delivery.");
+                    } 
+                    // 2. Chat messages
+                    elseif ($chatMsg && $chatMsg->direction === 'out' && !$chatMsg->is_billed) {
+                        $rate = 0;
+                        $category = 'service';
+                        
+                        // If meta provides pricing info in this webhook, use it
+                        if (isset($status['pricing'])) {
+                            $isBillable = isset($status['pricing']['billable']) && filter_var($status['pricing']['billable'], FILTER_VALIDATE_BOOLEAN);
+                            $category = strtolower($status['pricing']['category'] ?? 'service');
+                            if ($isBillable) {
+                                $rate = \App\Models\Setting::getValue('meta_pricing_' . $category, 0);
+                            }
+                        } else {
+                            // Fallback if no pricing object in delivered webhook
+                            // Usually direct non-template messages are free inside 24h window, but if it's billable, we use service rate.
+                            // To be safe and not over-charge, we assume 0 if Meta doesn't explicitly state billable=true in previous/current webhooks.
+                            // For a perfect system, we would check if chatMsg is a template, but let's default to $rate = 0 if unknown.
+                            $rate = 0;
+                        }
+
+                        if ($rate > 0) {
+                            $device->decrement('balance', $rate);
+                            Log::info("Billed {$rate} IDR to device {$device->name} for {$category} chat message on Delivery.");
+                        }
+                        // Always mark as billed so we don't process it again
                         $chatMsg->update(['is_billed' => true]);
-                        Log::info("Billed {$rate} IDR to device {$device->name} for {$category} chat message.");
                     }
                 }
             }

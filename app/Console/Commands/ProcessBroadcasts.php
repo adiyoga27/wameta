@@ -141,8 +141,6 @@ class ProcessBroadcasts extends Command
                         'wa_timestamp' => now(),
                         'status' => 'sent',
                     ]);
-
-                    $device->decrement('balance');
                 } else {
                     $bc->update([
                         'status' => 'failed',
