@@ -355,7 +355,17 @@ function sendMessage(e) {
         }
 
         if (!data.success && data.error) {
-            showToast('Gagal: ' + data.error, 'error');
+            if (data.is_24h_window_error) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Sesi Obrolan Berakhir',
+                    html: `Tidak dapat mengirim pesan teks biasa karena pelanggan ini belum membalas lebih dari 24 jam terakhir (Kebijakan Meta API).<br><br><b>Ketik tanda <code>/</code> (garis miring) di kotak pesan</b> untuk memilih dan mengirimkan <i>Template Message</i> kepada pelanggan ini untuk memulai ulang percakapan.`,
+                    confirmButtonText: 'Mengerti',
+                    confirmButtonColor: '#128C7E'
+                });
+            } else {
+                showToast('Gagal: ' + data.error, 'error');
+            }
         }
         scrollToBottom();
     })

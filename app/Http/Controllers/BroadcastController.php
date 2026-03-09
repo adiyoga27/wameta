@@ -107,100 +107,19 @@ class BroadcastController extends Controller
     public function send(Broadcast $broadcast)
     {
         if ($broadcast->status === 'sending') {
-            return back()->with('error', 'Broadcast sedang dalam proses pengiriman!');
+            return back()->with('error', 'Broadcast sedang dalam antrean pengiriman!');
+        }
+
+        $device = $broadcast->device;
+
+        // Check if device has enough balance
+        if ($device->balance <= 0) {
+            return back()->with('error', 'Gagal memproses: Saldo perangkat Anda tidak mencukupi (Rp 0 atau kurang). Harap topup terlebih dahulu.');
         }
 
         $broadcast->update(['status' => 'sending']);
 
-        $device = $broadcast->device;
-        $template = $broadcast->messageTemplate;
-
-        // Check if device has enough balance
-        if ($device->balance <= 0) {
-            return back()->with('error', 'Gagal mengirim: Saldo perangkat Anda tidak mencukupi (Rp 0 atau kurang). Harap topup terlebih dahulu.');
-        }
-
-        $waService = new WhatsAppService($device);
-
-        // Persiapkan parameter header jika template butuh lampiran media
-        $headerData = [];
-        if (in_array($template->header_type, ['IMAGE', 'VIDEO', 'DOCUMENT'])) {
-            if ($template->header_media_path) {
-                $filePath = storage_path('app/public/' . $template->header_media_path);
-                if (file_exists($filePath)) {
-                    $mimeType = mime_content_type($filePath);
-                    $uploadResult = $waService->uploadMedia($filePath, $mimeType);
-                    
-                    if ($uploadResult['success']) {
-                        $mediaId = $uploadResult['media_id'];
-                        $typeKey = strtolower($template->header_type); // image, video, document
-                        $headerData = [
-                            'type' => $typeKey,
-                            $typeKey => ['id' => $mediaId]
-                        ];
-                    } else {
-                        // Jika gagal upload media, broadcast tidak bisa jalan
-                        $broadcast->update(['status' => 'failed']);
-                        return back()->with('error', 'Gagal memproses media template untuk broadcast: ' . ($uploadResult['error'] ?? 'Unknown error'));
-                    }
-                }
-            }
-        }
-
-        $sent = 0;
-        $failed = 0;
-
-        foreach ($broadcast->broadcastContacts()->whereIn('status', ['pending', 'failed'])->get() as $bc) {
-            $contact = $bc->contact;
-
-            $result = $waService->sendTemplateMessage(
-                $contact->phone,
-                $template->name,
-                $template->language,
-                [], // parameters (body params), currently unused
-                $headerData
-            );
-
-            if ($result['success']) {
-                $bc->update([
-                    'status' => 'sent',
-                    'wa_message_id' => $result['message_id'] ?? null,
-                ]);
-
-                // Save to chat history
-                ChatMessage::create([
-                    'device_id' => $device->id,
-                    'contact_number' => $contact->phone,
-                    'direction' => 'out',
-                    'message_type' => 'template',
-                    'message_body' => "[Template: {$template->name}]\n" . $template->body,
-                    'wa_message_id' => $result['message_id'] ?? null,
-                    'wa_timestamp' => now(),
-                    'status' => 'sent',
-                ]);
-
-                $sent++;
-            } else {
-                $bc->update([
-                    'status' => 'failed',
-                    'error_message' => $result['error'] ?? 'Unknown error',
-                ]);
-                $failed++;
-            }
-
-            // Small delay to avoid rate limiting
-            usleep(100000); // 100ms
-        }
-
-        $broadcast->update([
-            'status' => 'completed',
-            'sent' => $broadcast->broadcastContacts()->whereIn('status', ['sent', 'delivered', 'read'])->count(),
-            'failed' => $broadcast->broadcastContacts()->where('status', 'failed')->count(),
-            'delivered' => $broadcast->broadcastContacts()->whereIn('status', ['delivered', 'read'])->count(),
-            'read' => $broadcast->broadcastContacts()->where('status', 'read')->count(),
-        ]);
-
-        return back()->with('success', "Broadcast selesai memproses kontak!");
+        return back()->with('success', "Proses Broadcast telah dimasukkan ke dalam antrean *waiting list*. Pemuatan akan diproses oleh server secara bertahap.");
     }
 
     public function addContacts(Request $request, Broadcast $broadcast)

@@ -120,10 +120,16 @@ class MessageController extends Controller
 
         // AJAX response
         if ($request->wantsJson()) {
+            $is24hError = false;
+            if (!$result['success'] && isset($result['error_code']) && $result['error_code'] == 131047) {
+                $is24hError = true;
+            }
+
             return response()->json([
                 'success' => $result['success'],
                 'message' => $chatMsg,
                 'error' => $result['error'] ?? null,
+                'is_24h_window_error' => $is24hError,
             ]);
         }
 
