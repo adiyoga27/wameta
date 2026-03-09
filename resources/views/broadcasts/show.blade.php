@@ -51,17 +51,18 @@
                 $pendingOrFailed = $broadcast->broadcastContacts()->whereIn('status', ['pending', 'failed'])->count();
             @endphp
             @if(in_array($broadcast->status, ['draft', 'completed', 'failed']) && $pendingOrFailed > 0)
-                <form method="POST" action="{{ route('broadcasts.send', $broadcast) }}" onsubmit="return confirm('Peringatan Biaya:\n\nEstimasi pengiriman untuk {{ $pendingOrFailed }} kontak ini adalah Rp {{ number_format($pendingOrFailed * $msgRate, 0, ',', '.') }}.\n(Saldo hanya akan terpotong secara real-time saat pesan berhasil diterima/Delivered).\n\nLanjutkan?')">
+                <form id="sendBroadcastForm" method="POST" action="{{ route('broadcasts.send', $broadcast) }}">
                     @csrf
-                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-send-fill"></i> Kirim / Kirim Ulang</button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="confirmBroadcast()"><i class="bi bi-send-fill"></i> Kirim / Kirim Ulang</button>
                 </form>
             @endif
         </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:14px;">
         <div>
-            <span style="color:var(--text-muted);">Device:</span>
+            <span style="color:var(--text-muted);">Device / Saldo:</span>
             <span style="font-weight:600;">{{ $broadcast->device->name ?? '-' }}</span>
+            <span class="badge badge-success" style="margin-left:5px;">Rp {{ number_format($broadcast->device->balance ?? 0, 0, ',', '.') }}</span>
         </div>
         <div>
             <span style="color:var(--text-muted);">Template:</span>
@@ -251,5 +252,53 @@ document.addEventListener('change', function(e) {
         }
     }
 });
+
+function confirmBroadcast() {
+    const balance = {{ $broadcast->device->balance ?? 0 }};
+    const estimate = {{ $pendingOrFailed * $msgRate }};
+    const balanceShort = balance < estimate;
+
+    Swal.fire({
+        title: 'Konfirmasi Pengiriman',
+        html: `
+            <div style="text-align: left; font-size: 14px;">
+                <p>Anda akan mengirim pesan ke <strong>{{ $pendingOrFailed }} kontak</strong>.</p>
+                
+                <div style="display: flex; gap: 10px; margin: 15px 0;">
+                    <div style="flex: 1; background: rgba(37,211,102,0.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(37,211,102,0.2);">
+                        <div style="color: #25D366; font-size: 11px; font-weight: 700; text-transform: uppercase;">Estimasi Biaya:</div>
+                        <div style="font-size: 16px; font-weight: 800;">Rp {{ number_format($pendingOrFailed * $msgRate, 0, ',', '.') }}</div>
+                    </div>
+                    <div style="flex: 1; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+                        <div style="color: var(--text-muted); font-size: 11px; font-weight: 700; text-transform: uppercase;">Saldo Saat Ini:</div>
+                        <div style="font-size: 16px; font-weight: 800; color: ${balanceShort ? '#ef4444' : '#f3f4f6'};">Rp {{ number_format($broadcast->device->balance ?? 0, 0, ',', '.') }}</div>
+                    </div>
+                </div>
+
+                ${balanceShort ? `
+                    <div style="background: rgba(239,68,68,0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(239,68,68,0.2); color: #ef4444; font-size: 12px; margin-bottom: 15px;">
+                        <i class="bi bi-exclamation-triangle-fill"></i> Peringatan: Saldo Anda mungkin tidak cukup untuk menyelesaikan seluruh pengiriman.
+                    </div>
+                ` : ''}
+
+                <p style="color: #9ca3af; font-size: 12px;">Saldo hanya akan terpotong secara real-time saat pesan berhasil diterima (Delivered/Read).</p>
+                <p style="margin-top: 10px;">Lanjutkan pengiriman?</p>
+            </div>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: balanceShort ? '#f59e0b' : '#25D366',
+        cancelButtonColor: '#374151',
+        confirmButtonText: 'Ya, Kirim Sekarang!',
+        cancelButtonText: 'Batal',
+        background: '#111827',
+        color: '#f3f4f6',
+        reverseButtons: true
+    }).then((result) => {
+        if (result.isConfirmed) {
+            document.getElementById('sendBroadcastForm').submit();
+        }
+    });
+}
 </script>
 @endsection
