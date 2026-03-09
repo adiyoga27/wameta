@@ -9,4 +9,4 @@ Artisan::command('inspire', function () {
 
 use Illuminate\Support\Facades\Schedule;
 
-Schedule::command('broadcast:process --limit=100')->everyMinute()->withoutOverlapping();
+Schedule::command('broadcast:process --limit=100')->everyFiveMinutes()->withoutOverlapping();

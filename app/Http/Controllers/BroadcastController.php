@@ -117,9 +117,16 @@ class BroadcastController extends Controller
             return back()->with('error', 'Gagal memproses: Saldo perangkat Anda tidak mencukupi (Rp 0 atau kurang). Harap topup terlebih dahulu.');
         }
 
+        // Reset failed contacts to pending when retrying
+        $broadcast->broadcastContacts()->where('status', 'failed')->update([
+            'status' => 'pending',
+            'error_message' => null,
+            'wa_message_id' => null,
+        ]);
+
         $broadcast->update(['status' => 'sending']);
 
-        return back()->with('success', "Proses Broadcast telah dimasukkan ke dalam antrean *waiting list*. Pemuatan akan diproses oleh server secara bertahap.");
+        return back()->with('success', "Proses Broadcast telah dimasukkan ke dalam antrean *waiting list*. Pemuatan akan diproses oleh server secara bertahap setiap 5 menit.");
     }
 
     public function addContacts(Request $request, Broadcast $broadcast)
