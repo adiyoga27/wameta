@@ -179,6 +179,12 @@ class TopupController extends Controller
             return response()->json(['status' => 'ok']);
         } catch (\Exception $e) {
             Log::error('Midtrans notification error: ' . $e->getMessage());
+            
+            // Allow Midtrans dashboard test notifications (which use fake transaction IDs that result in 404) to pass
+            if (str_contains($e->getMessage(), '404') || str_contains($e->getMessage(), 'not found')) {
+                return response()->json(['status' => 'ok', 'message' => 'Ignoring test exception']);
+            }
+            
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
