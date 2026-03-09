@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Broadcast;
 use App\Models\BroadcastContact;
+use App\Models\ChatMessage;
 use App\Models\Contact;
 use App\Models\Device;
 use App\Models\MessageTemplate;
@@ -165,6 +166,19 @@ class BroadcastController extends Controller
                     'status' => 'sent',
                     'wa_message_id' => $result['message_id'] ?? null,
                 ]);
+
+                // Save to chat history
+                ChatMessage::create([
+                    'device_id' => $device->id,
+                    'contact_number' => $contact->phone,
+                    'direction' => 'out',
+                    'message_type' => 'template',
+                    'message_body' => "[Template: {$template->name}]\n" . $template->body,
+                    'wa_message_id' => $result['message_id'] ?? null,
+                    'wa_timestamp' => now(),
+                    'status' => 'sent',
+                ]);
+
                 $sent++;
             } else {
                 $bc->update([

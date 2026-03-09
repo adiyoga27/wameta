@@ -7,6 +7,7 @@ use App\Models\ChatMessage;
 use App\Models\Device;
 use App\Models\IncomingMessage;
 use App\Models\WebhookLog;
+use App\Services\WhatsAppService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -216,6 +217,15 @@ class WebhookController extends Controller
                     break;
                 default:
                     $messageBody = "[{$messageType}]";
+            }
+
+            // Download media if URL/ID is present
+            if ($mediaUrl) {
+                $waService = new WhatsAppService($device);
+                $downloadResult = $waService->downloadMedia($mediaUrl);
+                if ($downloadResult['success'] && $downloadResult['path']) {
+                    $mediaUrl = $downloadResult['path'];
+                }
             }
 
             $waTimestamp = isset($message['timestamp'])

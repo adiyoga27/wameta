@@ -144,6 +144,75 @@ class WhatsAppService
     }
 
     /**
+     * Download media from Meta API and save locally
+     * Docs: https://developers.facebook.com/docs/whatsapp/cloud-api/reference/media#download-media
+     *
+     * @param string $mediaId ID from webhook message payload
+     * @return array ['success' => bool, 'path' => string|null, 'error' => string|null]
+     */
+    public function downloadMedia(string $mediaId): array
+    {
+        try {
+            // Step 1: Get download URL
+            $urlResponse = Http::withHeaders($this->headers())
+                ->get("{$this->baseUrl}/{$mediaId}");
+
+            $urlResult = $urlResponse->json();
+            Log::info('WhatsApp Get Media URL', ['response' => $urlResult]);
+
+            if (!$urlResponse->successful() || empty($urlResult['url'])) {
+                return ['success' => false, 'error' => 'Gagal mendapatkan URL media', 'path' => null];
+            }
+
+            $downloadUrl = $urlResult['url'];
+            $mimeType = $urlResult['mime_type'] ?? 'application/octet-stream';
+            
+            // Generate extension from mime type
+            $extension = 'bin';
+            $mimeMap = [
+                'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp',
+                'video/mp4' => 'mp4', 'video/3gpp' => '3gpp',
+                'audio/aac' => 'aac', 'audio/mp4' => 'm4a', 'audio/mpeg' => 'mp3', 'audio/amr' => 'amr', 'audio/ogg' => 'ogg',
+                'application/pdf' => 'pdf',
+                'application/msword' => 'doc',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+                'application/vnd.ms-excel' => 'xls',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+            ];
+            if (isset($mimeMap[$mimeType])) {
+                $extension = $mimeMap[$mimeType];
+            } else if (preg_match('/^image\/(.+)$/', $mimeType, $m)) {
+                $extension = $m[1];
+            } else if (preg_match('/^video\/(.+)$/', $mimeType, $m)) {
+                $extension = $m[1];
+            } else if (preg_match('/^audio\/(.+)$/', $mimeType, $m)) {
+                $extension = $m[1];
+            }
+
+            // Step 2: Download the actual file. Must include Bearer token.
+            $fileResponse = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->device->access_token,
+            ])->get($downloadUrl);
+
+            if (!$fileResponse->successful()) {
+                return ['success' => false, 'error' => 'Gagal mengunduh file media', 'path' => null];
+            }
+
+            // Save locally
+            $filename = $mediaId . '_' . time() . '.' . $extension;
+            $path = 'wa_media/' . $filename;
+            
+            \Illuminate\Support\Facades\Storage::disk('public')->put($path, $fileResponse->body());
+
+            return ['success' => true, 'path' => $path];
+
+        } catch (\Exception $e) {
+            Log::error('WhatsApp downloadMedia error: ' . $e->getMessage());
+            return ['success' => false, 'error' => $e->getMessage(), 'path' => null];
+        }
+    }
+
+    /**
      * Create a message template on Meta
      */
     public function createTemplate(array $data): array

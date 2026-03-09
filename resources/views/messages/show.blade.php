@@ -97,18 +97,40 @@
                     @endif
                     <div class="chat-bubble {{ $msg->direction === 'out' ? 'bubble-out' : 'bubble-in' }}">
                         @if($msg->message_type !== 'text')
-                            <div class="bubble-media-tag">
-                                @switch($msg->message_type)
-                                    @case('image') <i class="bi bi-image"></i> Foto @break
-                                    @case('video') <i class="bi bi-camera-video"></i> Video @break
-                                    @case('audio') <i class="bi bi-mic"></i> Audio @break
-                                    @case('document') <i class="bi bi-file-earmark"></i> Dokumen @break
-                                    @case('sticker') <i class="bi bi-emoji-smile"></i> Stiker @break
-                                    @case('location') <i class="bi bi-geo-alt"></i> Lokasi @break
-                                    @case('contacts') <i class="bi bi-person"></i> Kontak @break
-                                    @case('reaction') <i class="bi bi-emoji-heart-eyes"></i> Reaksi @break
-                                    @default <i class="bi bi-chat"></i> {{ $msg->message_type }} @break
-                                @endswitch
+                            <div class="bubble-media-tag" style="margin-bottom: 5px;">
+                                @if(in_array($msg->message_type, ['image', 'video', 'document', 'audio', 'sticker']) && $msg->media_url && str_contains($msg->media_url, '/'))
+                                    @if($msg->message_type === 'image' || $msg->message_type === 'sticker')
+                                        <a href="{{ Storage::url($msg->media_url) }}" target="_blank">
+                                            <img src="{{ Storage::url($msg->media_url) }}" style="max-width: 100%; border-radius: 6px; max-height: 250px; object-fit: contain;">
+                                        </a>
+                                    @elseif($msg->message_type === 'video')
+                                        <video controls style="max-width: 100%; border-radius: 6px; max-height: 250px;">
+                                            <source src="{{ Storage::url($msg->media_url) }}" type="video/mp4">
+                                            Browser Anda tidak mendukung video.
+                                        </video>
+                                    @elseif($msg->message_type === 'audio')
+                                        <audio controls style="max-width: 100%; width: 220px;">
+                                            <source src="{{ Storage::url($msg->media_url) }}" type="audio/mpeg">
+                                        </audio>
+                                    @else
+                                        <a href="{{ Storage::url($msg->media_url) }}" target="_blank" class="btn btn-sm btn-light" style="font-size: 11px; display: block; text-align: center; text-decoration: none;">
+                                            <i class="bi bi-download"></i> Unduh File
+                                        </a>
+                                    @endif
+                                @else
+                                    @switch($msg->message_type)
+                                        @case('image') <i class="bi bi-image"></i> Foto @break
+                                        @case('video') <i class="bi bi-camera-video"></i> Video @break
+                                        @case('audio') <i class="bi bi-mic"></i> Audio @break
+                                        @case('document') <i class="bi bi-file-earmark"></i> Dokumen @break
+                                        @case('sticker') <i class="bi bi-emoji-smile"></i> Stiker @break
+                                        @case('location') <i class="bi bi-geo-alt"></i> Lokasi @break
+                                        @case('contacts') <i class="bi bi-person"></i> Kontak @break
+                                        @case('reaction') <i class="bi bi-emoji-heart-eyes"></i> Reaksi @break
+                                        @case('template') <i class="bi bi-magic"></i> Template @break
+                                        @default <i class="bi bi-chat"></i> {{ $msg->message_type }} @break
+                                    @endswitch
+                                @endif
                             </div>
                         @endif
                         <div class="bubble-text">{{ $msg->message_body }}</div>
@@ -408,9 +430,44 @@ function appendBubble(msg) {
 
     let mediaTag = '';
     if (msg.message_type !== 'text') {
-        const icons = { image:'bi-image', video:'bi-camera-video', audio:'bi-mic', document:'bi-file-earmark', sticker:'bi-emoji-smile', location:'bi-geo-alt' };
-        const labels = { image:'Foto', video:'Video', audio:'Audio', document:'Dokumen', sticker:'Stiker', location:'Lokasi' };
-        mediaTag = `<div class="bubble-media-tag"><i class="bi ${icons[msg.message_type] || 'bi-chat'}"></i> ${labels[msg.message_type] || msg.message_type}</div>`;
+        const icons = { image:'bi-image', video:'bi-camera-video', audio:'bi-mic', document:'bi-file-earmark', sticker:'bi-emoji-smile', location:'bi-geo-alt', template:'bi-magic' };
+        const labels = { image:'Foto', video:'Video', audio:'Audio', document:'Dokumen', sticker:'Stiker', location:'Lokasi', template:'Template' };
+        
+        let visualMedia = false;
+        if (msg.media_url && msg.media_url.includes('/')) {
+            visualMedia = true;
+            const storageUrl = `/storage/${msg.media_url}`;
+            
+            if (msg.message_type === 'image' || msg.message_type === 'sticker') {
+                mediaTag = `<div class="bubble-media-tag" style="margin-bottom: 5px;">
+                    <a href="${storageUrl}" target="_blank">
+                        <img src="${storageUrl}" style="max-width: 100%; border-radius: 6px; max-height: 250px; object-fit: contain;">
+                    </a>
+                </div>`;
+            } else if (msg.message_type === 'video') {
+                mediaTag = `<div class="bubble-media-tag" style="margin-bottom: 5px;">
+                    <video controls style="max-width: 100%; border-radius: 6px; max-height: 250px;">
+                        <source src="${storageUrl}" type="video/mp4">
+                    </video>
+                </div>`;
+            } else if (msg.message_type === 'audio') {
+                mediaTag = `<div class="bubble-media-tag" style="margin-bottom: 5px;">
+                    <audio controls style="max-width: 100%; width: 220px;">
+                        <source src="${storageUrl}" type="audio/mpeg">
+                    </audio>
+                </div>`;
+            } else {
+                mediaTag = `<div class="bubble-media-tag" style="margin-bottom: 5px;">
+                    <a href="${storageUrl}" target="_blank" class="btn btn-sm btn-light" style="font-size: 11px; display: block; text-align: center; text-decoration: none;">
+                        <i class="bi bi-download"></i> Unduh File
+                    </a>
+                </div>`;
+            }
+        }
+        
+        if (!visualMedia) {
+            mediaTag = `<div class="bubble-media-tag"><i class="bi ${icons[msg.message_type] || 'bi-chat'}"></i> ${labels[msg.message_type] || msg.message_type}</div>`;
+        }
     }
 
     row.innerHTML = `
