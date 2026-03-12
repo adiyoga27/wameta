@@ -45,6 +45,14 @@ class TemplateController extends Controller
             'header_media' => 'nullable|file|max:102400', // max 100MB for documents
             'body' => 'required|string',
             'footer' => 'nullable|string|max:60',
+            'buttons' => 'nullable|array|max:3',
+            'buttons.*.type' => 'required_with:buttons|in:QUICK_REPLY,URL,PHONE_NUMBER,COPY_CODE,FLOW',
+            'buttons.*.text' => 'required_with:buttons|string|max:25',
+            'buttons.*.url' => 'nullable|required_if:buttons.*.type,URL|url|max:2000',
+            'buttons.*.phone_number' => 'nullable|required_if:buttons.*.type,PHONE_NUMBER|string|max:20',
+            'buttons.*.copy_code' => 'nullable|required_if:buttons.*.type,COPY_CODE|string|max:15',
+            'buttons.*.flow_id' => 'nullable|required_if:buttons.*.type,FLOW|string',
+            'buttons.*.flow_action' => 'nullable|in:navigate,data_exchange',
         ]);
 
         $device = Device::findOrFail($data['device_id']);

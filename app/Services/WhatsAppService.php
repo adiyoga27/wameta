@@ -291,12 +291,24 @@ class WhatsAppService
         if (!empty($data['buttons'])) {
             $buttons = [];
             foreach ($data['buttons'] as $btn) {
+                if (empty($btn['type']) || empty($btn['text'])) continue;
+
                 if ($btn['type'] === 'URL') {
                     $buttons[] = ['type' => 'URL', 'text' => $btn['text'], 'url' => $btn['url']];
                 } elseif ($btn['type'] === 'PHONE_NUMBER') {
                     $buttons[] = ['type' => 'PHONE_NUMBER', 'text' => $btn['text'], 'phone_number' => $btn['phone_number']];
                 } elseif ($btn['type'] === 'QUICK_REPLY') {
                     $buttons[] = ['type' => 'QUICK_REPLY', 'text' => $btn['text']];
+                } elseif ($btn['type'] === 'COPY_CODE') {
+                    $buttons[] = ['type' => 'COPY_CODE', 'example' => $btn['copy_code'] ?? ''];
+                } elseif ($btn['type'] === 'FLOW') {
+                    $button = [
+                        'type' => 'FLOW',
+                        'text' => $btn['text'],
+                        'flow_id' => $btn['flow_id'] ?? '',
+                        'flow_action' => $btn['flow_action'] ?? 'navigate',
+                    ];
+                    $buttons[] = $button;
                 }
             }
             if (!empty($buttons)) {
