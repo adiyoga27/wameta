@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Device;
 use App\Models\Topup;
+use App\Models\ChatMessage;
+use App\Models\BroadcastContact;
 use App\Services\MidtransService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -29,16 +31,61 @@ class TopupController extends Controller
             }
         }
 
+        // History of Topups
         $query = Topup::with(['device', 'user'])->latest();
         if ($deviceId !== 'all') {
             $query->where('device_id', $deviceId);
         } elseif (!auth()->user()->isSuperAdmin()) {
             $query->whereIn('device_id', $devices->pluck('id'));
         }
-
         $topups = $query->paginate(15);
 
-        return view('topups.index', compact('devices', 'device', 'deviceId', 'topups'));
+        // History of Daily Usages (billed_amount)
+        $usages = collect();
+
+        // 1. Chat Messages
+        $chatQuery = ChatMessage::where('is_billed', true)->whereNotNull('billed_amount')->where('billed_amount', '>', 0);
+        if ($deviceId !== 'all') {
+            $chatQuery->where('device_id', $deviceId);
+        } elseif (!auth()->user()->isSuperAdmin()) {
+            $chatQuery->whereIn('device_id', $devices->pluck('id'));
+        }
+        $chatExpenses = $chatQuery->selectRaw('DATE(updated_at) as date, SUM(billed_amount) as total')
+                                 ->groupByRaw('DATE(updated_at)')
+                                 ->get();
+
+        // 2. Broadcast Contacts
+        $bcQuery = BroadcastContact::join('broadcasts', 'broadcast_contacts.broadcast_id', '=', 'broadcasts.id')
+                                ->where('broadcast_contacts.is_billed', true)
+                                ->whereNotNull('broadcast_contacts.billed_amount')
+                                ->where('broadcast_contacts.billed_amount', '>', 0);
+        
+        if ($deviceId !== 'all') {
+            $bcQuery->where('broadcasts.device_id', $deviceId);
+        } elseif (!auth()->user()->isSuperAdmin()) {
+            $bcQuery->whereIn('broadcasts.device_id', $devices->pluck('id'));
+        }
+        $bcExpenses = $bcQuery->selectRaw('DATE(broadcast_contacts.updated_at) as date, SUM(broadcast_contacts.billed_amount) as total')
+                                ->groupByRaw('DATE(broadcast_contacts.updated_at)')
+                                ->get();
+
+        // Merge the two and sum up by date
+        foreach ($chatExpenses as $expense) {
+            $date = $expense->date;
+            $current = $usages->get($date, 0);
+            $usages->put($date, $current + $expense->total);
+        }
+
+        foreach ($bcExpenses as $expense) {
+            $date = $expense->date;
+            $current = $usages->get($date, 0);
+            $usages->put($date, $current + $expense->total);
+        }
+
+        // Sort descending by date
+        $dailyUsages = $usages->sortKeysDesc();
+
+        return view('topups.index', compact('devices', 'device', 'deviceId', 'topups', 'dailyUsages'));
     }
 
     /**
@@ -198,5 +245,72 @@ class TopupController extends Controller
         $topup = $orderId ? Topup::where('order_id', $orderId)->first() : null;
 
         return view('topups.finish', ['topup' => $topup]);
+    }
+
+    /**
+     * Show detail usage for a specific date
+     */
+    public function historyDetail(Request $request, $date)
+    {
+        $devices = $this->getAccessibleDevices();
+        $deviceId = $request->get('device_id', 'all');
+
+        $device = null;
+        if ($deviceId !== 'all') {
+            $device = $devices->firstWhere('id', $deviceId);
+            if (!$device) {
+                return redirect()->route('topups.index')->with('error', 'Anda tidak memiliki akses ke device ini.');
+            }
+        }
+
+        // Fetch Chat Messages for the day
+        $chatQuery = ChatMessage::with('device')->where('is_billed', true)->whereNotNull('billed_amount')->where('billed_amount', '>', 0)->whereDate('updated_at', $date);
+        if ($deviceId !== 'all') {
+            $chatQuery->where('device_id', $deviceId);
+        } elseif (!auth()->user()->isSuperAdmin()) {
+            $chatQuery->whereIn('device_id', $devices->pluck('id'));
+        }
+        $chatMessages = $chatQuery->get()->map(function($item) {
+            return (object) [
+                'type' => 'Chat Message (' . ucfirst($item->message_type) . ')',
+                'device_name' => $item->device->name,
+                'contact' => $item->contact_number,
+                'status' => $item->status,
+                'amount' => $item->billed_amount,
+                'time' => $item->updated_at
+            ];
+        });
+
+        // Fetch Broadcast Contacts for the day
+        $bcQuery = BroadcastContact::with(['broadcast.device', 'broadcast.messageTemplate', 'contact'])
+                ->where('is_billed', true)
+                ->whereNotNull('billed_amount')
+                ->where('billed_amount', '>', 0)
+                ->whereDate('updated_at', $date);
+
+        if ($deviceId !== 'all') {
+            $bcQuery->whereHas('broadcast', function($q) use ($deviceId) {
+                $q->where('device_id', $deviceId);
+            });
+        } elseif (!auth()->user()->isSuperAdmin()) {
+            $bcQuery->whereHas('broadcast', function($q) use ($devices) {
+                $q->whereIn('device_id', $devices->pluck('id'));
+            });
+        }
+        $broadcastContacts = $bcQuery->get()->map(function($item) {
+            $templateName = $item->broadcast->messageTemplate->name ?? 'Unknown Template';
+            return (object) [
+                'type' => 'Broadcast (' . $templateName . ')',
+                'device_name' => $item->broadcast->device->name,
+                'contact' => $item->contact->phone_number ?? 'Unknown',
+                'status' => $item->status,
+                'amount' => $item->billed_amount,
+                'time' => $item->updated_at
+            ];
+        });
+
+        $details = $chatMessages->concat($broadcastContacts)->sortByDesc('time');
+
+        return view('topups.history_detail', compact('date', 'details', 'device', 'deviceId'));
     }
 }

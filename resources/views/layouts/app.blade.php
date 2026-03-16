@@ -313,7 +313,7 @@
                 <i class="bi bi-person-lines-fill"></i> Kontak
             </a>
             <a href="{{ route('topups.index') }}" class="nav-item {{ request()->routeIs('topups.*') ? 'active' : '' }}">
-                <i class="bi bi-wallet2"></i> Top Up Saldo
+                <i class="bi bi-wallet2"></i> Saldo
             </a>
             <a href="{{ route('messages.index') }}" class="nav-item {{ request()->routeIs('messages.*') ? 'active' : '' }}">
                 <i class="bi bi-chat-dots-fill"></i> Pesan Masuk

@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Top Up Saldo')
+@section('title', 'Saldo')
 
 @section('actions')
 <form method="GET" action="{{ route('topups.index') }}" style="display:flex;gap:8px;align-items:center;">
@@ -197,8 +197,48 @@
                 </tbody>
             </table>
         </div>
+        </div>
         <div class="pagination">
             {{ $topups->appends(['device_id' => $deviceId])->links('pagination::simple-bootstrap-5') }}
+        </div>
+    @endif
+</div>
+
+<!-- Daily Usage History -->
+<div class="card" style="margin-top:20px;">
+    <div class="card-header">
+        <h3><i class="bi bi-graph-down-arrow" style="color:var(--danger);margin-right:8px;"></i> Riwayat Penggunaan Saldo Harian</h3>
+    </div>
+    @if($dailyUsages->isEmpty())
+        <div class="empty-state">
+            <i class="bi bi-chat-dots"></i>
+            <h4>Belum ada penggunaan saldo</h4>
+            <p>Biaya pengiriman pesan broadcast dan chat akan terakumulasi di sini</p>
+        </div>
+    @else
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tanggal</th>
+                        <th>Total Biaya</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($dailyUsages as $date => $total)
+                    <tr>
+                        <td style="font-weight:600;">{{ \Carbon\Carbon::parse($date)->translatedFormat('l, d F Y') }}</td>
+                        <td style="font-weight:700;color:var(--danger);">- Rp {{ number_format($total, 0, ',', '.') }}</td>
+                        <td>
+                            <a href="{{ route('topups.history.detail', ['date' => $date, 'device_id' => $deviceId]) }}" class="btn btn-secondary btn-sm" title="Lihat Detail">
+                                <i class="bi bi-eye"></i> Detail
+                            </a>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
         </div>
     @endif
 </div>

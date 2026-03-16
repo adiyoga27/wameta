@@ -10,10 +10,6 @@
                 <option value="{{ $d->id }}" {{ $deviceId == $d->id ? 'selected' : '' }}>{{ $d->name }}</option>
             @endforeach
         </select>
-        <div class="input-group input-group-sm" style="width: 250px;">
-            <input type="text" name="search" class="form-control" placeholder="Cari nama / template..." value="{{ request('search') }}">
-            <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
-        </div>
     </form>
     <a href="{{ route('broadcasts.create', ['device_id' => $deviceId]) }}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Buat Broadcast</a>
 </div>
@@ -21,8 +17,15 @@
 
 @section('content')
 <div class="card">
-    <div class="card-header">
-        <h3><i class="bi bi-megaphone-fill" style="color:var(--accent);margin-right:8px;"></i> Daftar Broadcast</h3>
+    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px;">
+        <h3 style="margin:0;"><i class="bi bi-megaphone-fill" style="color:var(--accent);margin-right:8px;"></i> Daftar Broadcast</h3>
+        <form method="GET" action="{{ route('broadcasts.index') }}" style="margin:0;">
+            <input type="hidden" name="device_id" value="{{ $deviceId }}">
+            <div style="position:relative; width:260px; max-width:100%;">
+                <i class="bi bi-search" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:14px;"></i>
+                <input type="text" name="search" class="form-control" placeholder="Cari nama / template..." value="{{ request('search') }}" style="width:100%; border-radius:20px; padding:8px 15px 8px 35px; border:1px solid var(--border); background:var(--bg-secondary); font-size:13px; outline:none; box-shadow:none; transition:border-color 0.2s;">
+            </div>
+        </form>
     </div>
     @if($broadcasts->isEmpty())
         <div class="empty-state">

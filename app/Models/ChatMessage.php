@@ -18,6 +18,7 @@ class ChatMessage extends Model
         'wa_timestamp',
         'status',
         'is_billed',
+        'billed_amount',
     ];
 
     protected $casts = [

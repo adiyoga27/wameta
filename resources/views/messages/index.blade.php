@@ -30,6 +30,9 @@
                 <i class="bi bi-plus-lg"></i> Baru
             </button>
         </div>
+        <div class="chat-sidebar-search">
+            <input type="text" id="conversationSearch" placeholder="Cari nama atau nomor...">
+        </div>
         @if($conversations->isEmpty())
             <div class="empty-state" style="padding:40px 20px;">
                 <i class="bi bi-chat-dots" style="font-size:36px;"></i>
@@ -108,6 +111,9 @@
 .chat-container { display:flex; height:calc(100vh - 130px); background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
 .chat-sidebar { width:340px; min-width:340px; border-right:1px solid var(--border); display:flex; flex-direction:column; }
 .chat-sidebar-header { padding:16px 18px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+.chat-sidebar-search { padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--bg-card); }
+.chat-sidebar-search input { width: 100%; border-radius: 20px; border: 1px solid var(--border); padding: 8px 12px 8px 36px; font-size: 13px; color: var(--text-primary); background: var(--bg-secondary) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="%23999"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/></svg>') no-repeat 12px center / 14px; outline: none; transition: border-color 0.2s; }
+.chat-sidebar-search input:focus { border-color: var(--accent); }
 .conversation-list { flex:1; overflow-y:auto; }
 .conversation-item { display:flex; align-items:center; gap:12px; padding:14px 18px; text-decoration:none; color:var(--text-primary); transition:background 0.15s; border-bottom:1px solid var(--border); cursor:pointer; }
 .conversation-item:hover { background:var(--bg-glass); color:var(--text-primary); }
@@ -131,4 +137,28 @@
     .chat-main { display:none; }
 }
 </style>
+</style>
+@endsection
+
+@section('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('conversationSearch');
+    const convItems = document.querySelectorAll('.conversation-item');
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const query = this.value.toLowerCase();
+            convItems.forEach(item => {
+                const name = item.querySelector('.conv-name').textContent.toLowerCase();
+                if (name.includes(query)) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+    }
+});
+</script>
 @endsection

@@ -35,6 +35,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/topups', [TopupController::class, 'index'])->name('topups.index');
     Route::post('/topups', [TopupController::class, 'store'])->name('topups.store');
     Route::get('/topups/finish', [TopupController::class, 'finish'])->name('topups.finish');
+    Route::get('/topups/history/{date}', [TopupController::class, 'historyDetail'])->name('topups.history.detail');
 
     // Templates
     Route::get('/templates', [TemplateController::class, 'index'])->name('templates.index');

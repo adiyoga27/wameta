@@ -312,7 +312,10 @@ class WebhookController extends Controller
                         $rate = floatval($device->$pricingProperty ?? 0);
                         
                         $device->decrement('balance', $rate);
-                        $bc->update(['is_billed' => true]);
+                        $bc->update([
+                            'is_billed' => true,
+                            'billed_amount' => $rate
+                        ]);
                         Log::info("Billed {$rate} IDR to device {$device->name} for {$category} broadcast message on Delivery.");
                     } 
                     // 2. Chat messages
@@ -341,7 +344,10 @@ class WebhookController extends Controller
                             Log::info("Billed {$rate} IDR to device {$device->name} for {$category} chat message on Delivery.");
                         }
                         // Always mark as billed so we don't process it again
-                        $chatMsg->update(['is_billed' => true]);
+                        $chatMsg->update([
+                            'is_billed' => true,
+                            'billed_amount' => $rate
+                        ]);
                     }
                 }
             }
