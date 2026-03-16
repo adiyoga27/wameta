@@ -5,11 +5,15 @@
 @section('actions')
 <div style="display:flex;gap:10px;align-items:center;">
     <form method="GET" action="{{ route('broadcasts.index') }}" style="display:flex;gap:8px;align-items:center;">
-        <select name="device_id" class="form-control" style="width:200px;padding:8px 12px;" onchange="this.form.submit()">
+        <select name="device_id" class="form-control form-control-sm" style="width:200px;" onchange="this.form.submit()">
             @foreach($devices as $d)
                 <option value="{{ $d->id }}" {{ $deviceId == $d->id ? 'selected' : '' }}>{{ $d->name }}</option>
             @endforeach
         </select>
+        <div class="input-group input-group-sm" style="width: 250px;">
+            <input type="text" name="search" class="form-control" placeholder="Cari nama / template..." value="{{ request('search') }}">
+            <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
+        </div>
     </form>
     <a href="{{ route('broadcasts.create', ['device_id' => $deviceId]) }}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Buat Broadcast</a>
 </div>
@@ -53,7 +57,14 @@
                             @endswitch
                         </td>
                         <td>
-                            <a href="{{ route('broadcasts.show', $bc) }}" class="btn btn-secondary btn-sm"><i class="bi bi-eye"></i></a>
+                            <div style="display: flex; gap: 5px;">
+                                <a href="{{ route('broadcasts.show', $bc) }}" class="btn btn-secondary btn-sm" title="Lihat Detail"><i class="bi bi-eye"></i></a>
+                                <form action="{{ route('broadcasts.destroy', $bc) }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus broadcast ini beserta seluruh daftar kontaknya?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-danger btn-sm" title="Hapus"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                     @endforeach

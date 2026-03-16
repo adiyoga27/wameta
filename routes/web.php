@@ -52,6 +52,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/broadcasts/{broadcast}/send', [BroadcastController::class, 'send'])->name('broadcasts.send');
     Route::post('/broadcasts/{broadcast}/add-contacts', [BroadcastController::class, 'addContacts'])->name('broadcasts.addContacts');
     Route::post('/broadcasts/contacts/{broadcastContact}/reset', [BroadcastController::class, 'resetContact'])->name('broadcasts.resetContact');
+    Route::delete('/broadcasts/{broadcast}', [BroadcastController::class, 'destroy'])->name('broadcasts.destroy');
 
     // Contacts
     Route::get('/contacts', [ContactController::class, 'index'])->name('contacts.index');

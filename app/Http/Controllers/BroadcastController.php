@@ -24,12 +24,20 @@ class BroadcastController extends Controller
         $devices = $this->getDevices();
         $deviceId = $request->get('device_id', $devices->first()?->id);
 
+        $search = $request->get('search');
+
         $broadcasts = Broadcast::where('device_id', $deviceId)
+            ->when($search, function ($query, $search) {
+                return $query->where('name', 'like', "%{$search}%")
+                             ->orWhereHas('messageTemplate', function ($q) use ($search) {
+                                 $q->where('name', 'like', "%{$search}%");
+                             });
+            })
             ->with(['messageTemplate', 'user'])
             ->latest()
             ->get();
 
-        return view('broadcasts.index', compact('broadcasts', 'devices', 'deviceId'));
+        return view('broadcasts.index', compact('broadcasts', 'devices', 'deviceId', 'search'));
     }
 
     public function create(Request $request)
@@ -182,5 +190,13 @@ class BroadcastController extends Controller
         ]);
 
         return back()->with('success', 'Status kontak berhasil dikembalikan ke Pending.');
+    }
+
+    public function destroy(Broadcast $broadcast)
+    {
+        $broadcast->broadcastContacts()->delete();
+        $broadcast->delete();
+
+        return back()->with('success', 'Broadcast berhasil dihapus beserta seluruh kontaknya.');
     }
 }
