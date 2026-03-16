@@ -197,7 +197,6 @@
                 </tbody>
             </table>
         </div>
-        </div>
         <div class="pagination">
             {{ $topups->appends(['device_id' => $deviceId])->links('pagination::simple-bootstrap-5') }}
         </div>
@@ -206,8 +205,23 @@
 
 <!-- Daily Usage History -->
 <div class="card" style="margin-top:20px;">
-    <div class="card-header">
-        <h3><i class="bi bi-graph-down-arrow" style="color:var(--danger);margin-right:8px;"></i> Riwayat Penggunaan Saldo Harian</h3>
+    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px;">
+        <h3 style="margin:0;"><i class="bi bi-graph-down-arrow" style="color:var(--danger);margin-right:8px;"></i> Riwayat Penggunaan Saldo Harian</h3>
+        <form method="GET" action="{{ route('topups.index') }}" style="margin:0; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <input type="hidden" name="device_id" value="{{ $deviceId }}">
+            <div class="input-group input-group-sm" style="width: auto;">
+                <span class="input-group-text">Dari</span>
+                <input type="date" name="start_date" class="form-control" value="{{ request('start_date') }}">
+            </div>
+            <div class="input-group input-group-sm" style="width: auto;">
+                <span class="input-group-text">Sampai</span>
+                <input type="date" name="end_date" class="form-control" value="{{ request('end_date') }}">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-filter"></i> Filter</button>
+            @if(request('start_date') || request('end_date'))
+                 <a href="{{ route('topups.index', ['device_id' => $deviceId]) }}" class="btn btn-secondary btn-sm"><i class="bi bi-x-circle"></i> Reset</a>
+            @endif
+        </form>
     </div>
     @if($dailyUsages->isEmpty())
         <div class="empty-state">

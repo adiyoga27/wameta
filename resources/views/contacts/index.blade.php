@@ -147,8 +147,8 @@
 
         {{-- Contact List --}}
         <div class="card">
-            <div class="card-header">
-                <h3>
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="margin:0;">
                     <i class="bi bi-person-lines-fill" style="color:var(--accent);margin-right:8px;"></i>
                     @if($categoryId && $categoryId !== 'uncategorized')
                         @php $currentCat = $categories->firstWhere('id', $categoryId); @endphp
@@ -163,6 +163,9 @@
                     @endif
                     <span style="font-size:14px;font-weight:400;color:var(--text-muted);margin-left:8px;">({{ $contacts->total() }})</span>
                 </h3>
+                <a href="{{ route('contacts.export', ['category_id' => $categoryId, 'search' => $search]) }}" class="btn btn-success btn-sm">
+                    <i class="bi bi-file-earmark-excel"></i> Export Excel
+                </a>
             </div>
             @if($contacts->isEmpty())
                 <div class="empty-state">

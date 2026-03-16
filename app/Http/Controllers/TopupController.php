@@ -42,6 +42,8 @@ class TopupController extends Controller
 
         // History of Daily Usages (billed_amount)
         $usages = collect();
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date');
 
         // 1. Chat Messages
         $chatQuery = ChatMessage::where('is_billed', true)->whereNotNull('billed_amount')->where('billed_amount', '>', 0);
@@ -49,6 +51,12 @@ class TopupController extends Controller
             $chatQuery->where('device_id', $deviceId);
         } elseif (!auth()->user()->isSuperAdmin()) {
             $chatQuery->whereIn('device_id', $devices->pluck('id'));
+        }
+        if ($startDate) {
+            $chatQuery->whereDate('updated_at', '>=', $startDate);
+        }
+        if ($endDate) {
+            $chatQuery->whereDate('updated_at', '<=', $endDate);
         }
         $chatExpenses = $chatQuery->selectRaw('DATE(updated_at) as date, SUM(billed_amount) as total')
                                  ->groupByRaw('DATE(updated_at)')
@@ -64,6 +72,12 @@ class TopupController extends Controller
             $bcQuery->where('broadcasts.device_id', $deviceId);
         } elseif (!auth()->user()->isSuperAdmin()) {
             $bcQuery->whereIn('broadcasts.device_id', $devices->pluck('id'));
+        }
+        if ($startDate) {
+            $bcQuery->whereDate('broadcast_contacts.updated_at', '>=', $startDate);
+        }
+        if ($endDate) {
+            $bcQuery->whereDate('broadcast_contacts.updated_at', '<=', $endDate);
         }
         $bcExpenses = $bcQuery->selectRaw('DATE(broadcast_contacts.updated_at) as date, SUM(broadcast_contacts.billed_amount) as total')
                                 ->groupByRaw('DATE(broadcast_contacts.updated_at)')
@@ -85,7 +99,7 @@ class TopupController extends Controller
         // Sort descending by date
         $dailyUsages = $usages->sortKeysDesc();
 
-        return view('topups.index', compact('devices', 'device', 'deviceId', 'topups', 'dailyUsages'));
+        return view('topups.index', compact('devices', 'device', 'deviceId', 'topups', 'dailyUsages', 'startDate', 'endDate'));
     }
 
     /**

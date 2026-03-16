@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Imports\ContactsImport;
+use App\Exports\ContactsExport;
 use App\Models\Contact;
 use App\Models\ContactCategory;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ContactController extends Controller
@@ -83,6 +85,28 @@ class ContactController extends Controller
         } catch (\Exception $e) {
             return back()->with('error', 'Gagal import: ' . $e->getMessage());
         }
+    }
+
+    public function export(Request $request)
+    {
+        $user = auth()->user();
+        $isSuperAdmin = $user->isSuperAdmin();
+        $categoryId = $request->input('category_id');
+        $search = $request->input('search');
+
+        $fileName = 'kontak';
+        if ($categoryId === 'uncategorized') {
+            $fileName .= '_tanpa_kategori';
+        } elseif ($categoryId) {
+            $cat = ContactCategory::find($categoryId);
+            if ($cat) $fileName .= '_' . \Str::slug($cat->name);
+        }
+        if ($search) {
+            $fileName .= '_search_' . \Str::slug($search);
+        }
+        $fileName .= '_' . date('Ymd_His') . '.xlsx';
+
+        return Excel::download(new ContactsExport($user->id, $isSuperAdmin, $categoryId, $search), $fileName);
     }
 
     public function destroy(Contact $contact)
