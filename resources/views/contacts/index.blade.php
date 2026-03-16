@@ -93,7 +93,10 @@
                     @csrf
                     <div class="form-group" style="margin-bottom:8px;">
                         <input type="file" name="file" class="form-control" accept=".xlsx,.xls,.csv" required style="font-size:12px;">
-                        <div class="form-hint" style="font-size:10px;">Kolom: <strong>phone</strong> (wajib), <strong>name</strong> (opsional)</div>
+                        <div class="form-hint" style="font-size:11px; margin-top:4px; display:flex; justify-content:space-between; align-items:center;">
+                            <span>Kolom: <strong>phone</strong> (wajib), <strong>name</strong> (opsional)</span>
+                            <a href="{{ route('contacts.exportTemplate') }}" style="color:var(--accent); text-decoration:none;"><i class="bi bi-download"></i> Download Template</a>
+                        </div>
                     </div>
                     <div class="form-group" style="margin-bottom:10px;">
                         <select name="category_id" class="form-control" style="padding:8px 12px;font-size:12px;">

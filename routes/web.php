@@ -58,6 +58,7 @@ Route::middleware('auth')->group(function () {
     // Contacts
     Route::get('/contacts', [ContactController::class, 'index'])->name('contacts.index');
     Route::get('/contacts/export', [ContactController::class, 'export'])->name('contacts.export');
+    Route::get('/contacts/export-template', [ContactController::class, 'exportTemplate'])->name('contacts.exportTemplate');
     Route::post('/contacts', [ContactController::class, 'store'])->name('contacts.store');
     Route::post('/contacts/import', [ContactController::class, 'import'])->name('contacts.import');
     Route::delete('/contacts/{contact}', [ContactController::class, 'destroy'])->name('contacts.destroy');

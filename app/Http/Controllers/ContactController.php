@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Imports\ContactsImport;
 use App\Exports\ContactsExport;
+use App\Exports\ContactsTemplateExport;
 use App\Models\Contact;
 use App\Models\ContactCategory;
 use Illuminate\Http\Request;
@@ -85,6 +86,11 @@ class ContactController extends Controller
         } catch (\Exception $e) {
             return back()->with('error', 'Gagal import: ' . $e->getMessage());
         }
+    }
+
+    public function exportTemplate()
+    {
+        return Excel::download(new ContactsTemplateExport, 'template_import_kontak.xlsx');
     }
 
     public function export(Request $request)
