@@ -29,4 +29,9 @@ class Device extends Model
     {
         return $this->hasMany(IncomingMessage::class);
     }
+
+    public function webhookLogs()
+    {
+        return $this->hasMany(WebhookLog::class);
+    }
 }

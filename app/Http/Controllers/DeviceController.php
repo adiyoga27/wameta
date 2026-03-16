@@ -14,7 +14,16 @@ class DeviceController extends Controller
 {
     public function index()
     {
-        $devices = Device::with('users')->latest()->get();
+        $devices = Device::with('users')
+            ->withCount('webhookLogs')
+            ->latest()
+            ->get();
+
+        // Attach last webhook time for each device
+        foreach ($devices as $device) {
+            $device->last_webhook_at = $device->webhookLogs()->latest()->value('created_at');
+        }
+
         return view('devices.index', compact('devices'));
     }
 

@@ -27,6 +27,7 @@
                         <th>WABA ID</th>
                         <th>Users</th>
                         <th>Status</th>
+                        <th>Webhook</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
@@ -49,6 +50,26 @@
                                 <span class="badge badge-success">Aktif</span>
                             @else
                                 <span class="badge badge-secondary">Nonaktif</span>
+                            @endif
+                        </td>
+                        <td>
+                            @if($device->webhook_logs_count > 0)
+                                <span class="badge badge-success" title="Total {{ $device->webhook_logs_count }} webhook diterima">
+                                    <i class="bi bi-check-circle-fill"></i> Terhubung
+                                </span>
+                                <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">
+                                    <i class="bi bi-clock"></i> {{ $device->last_webhook_at ? \Carbon\Carbon::parse($device->last_webhook_at)->diffForHumans() : '-' }}
+                                </div>
+                                <div style="font-size:11px;color:var(--text-muted);">
+                                    {{ $device->webhook_logs_count }} event diterima
+                                </div>
+                            @else
+                                <span class="badge badge-danger">
+                                    <i class="bi bi-x-circle-fill"></i> Belum Terhubung
+                                </span>
+                                <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">
+                                    Belum ada webhook masuk
+                                </div>
                             @endif
                         </td>
                         <td>
