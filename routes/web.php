@@ -86,7 +86,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/messages/{chatMessage}/label', [MessageController::class, 'setLabel'])->name('messages.setLabel');
     Route::put('/messages/{deviceId}/{contactNumber}/labels', [MessageController::class, 'updateConversationLabels'])->name('messages.updateConversationLabels');
     Route::get('/messages/{deviceId}/{contactNumber}/poll', [MessageController::class, 'poll'])->name('messages.poll');
-    Route::get('/messages/unread-notifications', [MessageController::class, 'unreadNotifications'])->name('messages.unread-notifications');
+    Route::get('/messages/recent-notifications', [MessageController::class, 'recentNotifications'])->name('messages.recent-notifications');
     Route::post('/messages/mark-all-read', [MessageController::class, 'markAllRead'])->name('messages.mark-all-read');
     Route::post('/save-fcm-token', [FCMController::class, 'saveToken'])->name('save-fcm-token');
     Route::get('/test-notification', function() {

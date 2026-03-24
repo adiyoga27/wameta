@@ -442,19 +442,18 @@ class MessageController extends Controller
     }
 
     /**
-     * Get recent unread notifications
+     * Get recent notifications (read & unread)
      */
-    public function unreadNotifications(Request $request)
+    public function recentNotifications(Request $request)
     {
         $user = auth()->user();
         $deviceIds = $user->isSuperAdmin() ? Device::pluck('id') : $user->devices->pluck('id');
 
         $notifications = ChatMessage::whereIn('device_id', $deviceIds)
             ->where('direction', 'in')
-            ->where('is_read', false)
             ->with('device')
             ->orderByDesc('wa_timestamp')
-            ->limit(10)
+            ->limit(15)
             ->get()
             ->map(function($msg) {
                 return [
@@ -464,7 +463,8 @@ class MessageController extends Controller
                     'message_body' => \Illuminate\Support\Str::limit($msg->message_body, 100),
                     'time' => $msg->wa_timestamp ? $msg->wa_timestamp->diffForHumans() : 'Baru saja',
                     'url' => route('messages.show', [$msg->device_id, $msg->contact_number]),
-                    'device_name' => $msg->device->name
+                    'device_name' => $msg->device->name,
+                    'is_read' => (bool) $msg->is_read
                 ];
             });
 

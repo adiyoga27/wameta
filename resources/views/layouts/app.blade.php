@@ -124,8 +124,16 @@
             transition: background 0.2s;
         }
         .notification-item:hover { background: var(--bg-hover); }
+        .notification-item.is-unread { background: rgba(54, 197, 241, 0.05); }
         .notification-item:last-child { border-bottom: none; }
         .notification-item-content { flex: 1; }
+        .notification-unread-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent);
+            border-radius: 50%;
+            margin-top: 6px;
+        }
         .notification-item-title { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
         .notification-item-body { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
         .notification-item-meta { font-size: 10px; color: var(--text-muted); margin-top: 4px; display: flex; justify-content: space-between; }
@@ -683,7 +691,7 @@
             function loadNotifications() {
                 nList.innerHTML = '<div style="padding: 20px; text-align: center;"><div class="spinner-border spinner-border-sm text-primary"></div></div>';
                 
-                fetch("{{ route('messages.unread-notifications') }}")
+                fetch("{{ route('messages.recent-notifications') }}")
                     .then(r => r.json())
                     .then(data => {
                         if (data.success) {
@@ -703,7 +711,7 @@
                 }
 
                 nList.innerHTML = notifications.map(n => `
-                    <a href="${n.url}" class="notification-item">
+                    <a href="${n.url}" class="notification-item ${!n.is_read ? 'is-unread' : ''}">
                         <div class="conv-avatar" style="width: 32px; height: 32px; font-size: 12px;">${n.contact_name.charAt(0).toUpperCase()}</div>
                         <div class="notification-item-content">
                             <div class="notification-item-title">${n.contact_name}</div>
@@ -713,6 +721,7 @@
                                 <span>${n.time}</span>
                             </div>
                         </div>
+                        ${!n.is_read ? '<div class="notification-unread-dot"></div>' : ''}
                     </a>
                 `).join('');
             }
