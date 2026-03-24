@@ -17,16 +17,25 @@ class MessageController extends Controller
         return $user->isSuperAdmin() ? Device::all() : $user->devices;
     }
 
-    protected function getConversations($deviceId)
+    protected function getConversations($deviceId, $search = null)
     {
-        $conversations = ChatMessage::where('chat_messages.device_id', $deviceId)
-            ->select(
+        $query = ChatMessage::where('chat_messages.device_id', $deviceId);
+
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('contact_number', 'like', "%{$search}%")
+                  ->orWhere('contact_name', 'like', "%{$search}%")
+                  ->orWhere('message_body', 'like', "%{$search}%");
+            });
+        }
+
+        $conversations = $query->select(
                 'contact_number',
                 DB::raw('MAX(contact_name) as contact_name'),
                 DB::raw('MAX(id) as last_message_id'),
                 DB::raw('MAX(wa_timestamp) as last_time'),
                 DB::raw('COUNT(*) as message_count'),
-                DB::raw("SUM(CASE WHEN direction = 'in' AND status = 'received' THEN 1 ELSE 0 END) as unread_count")
+                DB::raw("SUM(CASE WHEN direction = 'in' AND is_read = 0 THEN 1 ELSE 0 END) as unread_count")
             )
             ->groupBy('contact_number')
             ->orderByDesc('last_time')
@@ -34,8 +43,15 @@ class MessageController extends Controller
 
         $lastMessageIds = $conversations->pluck('last_message_id')->filter();
         $lastMessages = ChatMessage::whereIn('id', $lastMessageIds)->get()->keyBy('id');
+        
+        $convLabels = \App\Models\ConversationLabel::with('chatLabel')
+            ->where('device_id', $deviceId)
+            ->get()
+            ->groupBy('contact_number');
+
         foreach ($conversations as $conv) {
             $conv->last_message = $lastMessages[$conv->last_message_id] ?? null;
+            $conv->labels = $convLabels->get($conv->contact_number, collect());
         }
 
         return $conversations;
@@ -48,9 +64,15 @@ class MessageController extends Controller
     {
         $devices = $this->getDevices();
         $deviceId = $request->get('device_id', $devices->first()?->id);
-        $conversations = $this->getConversations($deviceId);
+        $search = $request->get('search');
+        
+        $conversations = $this->getConversations($deviceId, $search);
 
-        return view('messages.index', compact('conversations', 'devices', 'deviceId'));
+        if ($request->ajax()) {
+            return view('messages.partials.conversation_list', compact('conversations', 'deviceId', 'search'))->render();
+        }
+
+        return view('messages.index', compact('conversations', 'devices', 'deviceId', 'search'));
     }
 
     /**
@@ -60,29 +82,37 @@ class MessageController extends Controller
     {
         $devices = $this->getDevices();
         $device = Device::findOrFail($deviceId);
+        $search = $request->get('search');
 
         // Mark incoming unread messages as read
         ChatMessage::where('device_id', $deviceId)
             ->where('contact_number', $contactNumber)
             ->where('direction', 'in')
-            ->where('status', 'received')
-            ->update(['status' => 'read']);
+            ->where('is_read', false)
+            ->update(['is_read' => true, 'status' => 'read']);
 
-        $messages = ChatMessage::where('device_id', $deviceId)
+        $messages = ChatMessage::with('chatLabel')
+            ->where('device_id', $deviceId)
             ->where('contact_number', $contactNumber)
             ->orderBy('wa_timestamp', 'asc')
             ->orderBy('id', 'asc')
             ->get();
 
         $contactName = $messages->last()?->contact_name ?? $contactNumber;
-        $conversations = $this->getConversations($deviceId);
+        $conversations = $this->getConversations($deviceId, $search);
 
         $templates = MessageTemplate::where('device_id', $deviceId)
             ->where('status', 'APPROVED')
             ->get();
+            
+        $chatLabels = \App\Models\ChatLabel::where('device_id', $deviceId)->get();
+        $conversationLabels = \App\Models\ConversationLabel::with('chatLabel')
+            ->where('device_id', $deviceId)
+            ->where('contact_number', $contactNumber)
+            ->get();
 
         return view('messages.show', compact(
-            'messages', 'conversations', 'devices', 'deviceId', 'contactNumber', 'contactName', 'device', 'templates'
+            'messages', 'conversations', 'devices', 'deviceId', 'contactNumber', 'contactName', 'device', 'templates', 'search', 'chatLabels', 'conversationLabels'
         ));
     }
 
@@ -186,6 +216,8 @@ class MessageController extends Controller
                 $is24hError = true;
             }
 
+            $chatMsg->load('chatLabel');
+
             return response()->json([
                 'success' => $result['success'],
                 'message' => $chatMsg,
@@ -272,6 +304,8 @@ class MessageController extends Controller
             'status' => $result['success'] ? 'sent' : 'failed',
         ]);
 
+        $chatMsg->load('chatLabel');
+
         return response()->json([
             'success' => $result['success'],
             'message' => $chatMsg,
@@ -306,7 +340,7 @@ class MessageController extends Controller
 
         return response()->json([
             'success' => $result['success'],
-            'message' => $chatMessage->fresh(),
+            'message' => $chatMessage->fresh()->load('chatLabel'),
             'error' => $result['error'] ?? null,
         ]);
     }
@@ -318,21 +352,142 @@ class MessageController extends Controller
     {
         $afterId = $request->get('after_id', 0);
 
-        $newMessages = ChatMessage::where('device_id', $deviceId)
+        $newMessages = ChatMessage::with('chatLabel')
+            ->where('device_id', $deviceId)
             ->where('contact_number', $contactNumber)
             ->where('id', '>', $afterId)
             ->orderBy('id', 'asc')
             ->get();
 
         // Mark incoming newly polled messages as read since they are being displayed in the active chat window
-        $incomingIds = $newMessages->where('direction', 'in')->where('status', 'received')->pluck('id');
+        $incomingIds = $newMessages->where('direction', 'in')->where('is_read', false)->pluck('id');
         if ($incomingIds->isNotEmpty()) {
-            ChatMessage::whereIn('id', $incomingIds)->update(['status' => 'read']);
+            ChatMessage::whereIn('id', $incomingIds)->update(['is_read' => true, 'status' => 'read']);
         }
 
         return response()->json([
             'messages' => $newMessages,
             'count' => $newMessages->count(),
         ]);
+    }
+
+    /**
+     * Update global label for a message
+     */
+    public function setLabel(Request $request, $id)
+    {
+        $message = ChatMessage::findOrFail($id);
+        
+        $request->validate([
+            'chat_label_id' => 'nullable|exists:chat_labels,id',
+        ]);
+
+        $message->update([
+            'chat_label_id' => $request->chat_label_id
+        ]);
+        
+        $message->load('chatLabel');
+
+        return response()->json([
+            'success' => true, 
+            'label' => $message->chatLabel ? [
+                'id' => $message->chatLabel->id,
+                'name' => $message->chatLabel->name,
+                'color_hex' => $message->chatLabel->color_hex
+            ] : null,
+            'message_id' => $message->id
+        ]);
+    }
+
+    /**
+     * Update labels for a conversation (number)
+     */
+    public function updateConversationLabels(Request $request, $deviceId, $contactNumber)
+    {
+        $request->validate([
+            'label_ids' => 'array',
+            'label_ids.*' => 'exists:chat_labels,id'
+        ]);
+
+        \Illuminate\Support\Facades\DB::transaction(function() use ($deviceId, $contactNumber, $request) {
+            \App\Models\ConversationLabel::where('device_id', $deviceId)
+                ->where('contact_number', $contactNumber)
+                ->delete();
+
+            if ($request->has('label_ids') && is_array($request->label_ids)) {
+                $inserts = [];
+                $now = now();
+                foreach($request->label_ids as $id) {
+                    $inserts[] = [
+                        'device_id' => $deviceId,
+                        'contact_number' => $contactNumber,
+                        'chat_label_id' => $id,
+                        'created_at' => $now,
+                        'updated_at' => $now
+                    ];
+                }
+                \App\Models\ConversationLabel::insert($inserts);
+            }
+        });
+
+        $labels = \App\Models\ConversationLabel::with('chatLabel')
+            ->where('device_id', $deviceId)
+            ->where('contact_number', $contactNumber)
+            ->get();
+            
+        return response()->json([
+            'success' => true,
+            'labels' => $labels->map(fn($l) => ['id' => $l->chat_label_id, 'name' => $l->chatLabel->name, 'color' => $l->chatLabel->color_hex])
+        ]);
+    }
+
+    /**
+     * Get recent unread notifications
+     */
+    public function unreadNotifications(Request $request)
+    {
+        $user = auth()->user();
+        $deviceIds = $user->isSuperAdmin() ? Device::pluck('id') : $user->devices->pluck('id');
+
+        $notifications = ChatMessage::whereIn('device_id', $deviceIds)
+            ->where('direction', 'in')
+            ->where('is_read', false)
+            ->with('device')
+            ->orderByDesc('wa_timestamp')
+            ->limit(10)
+            ->get()
+            ->map(function($msg) {
+                return [
+                    'id' => $msg->id,
+                    'contact_number' => $msg->contact_number,
+                    'contact_name' => $msg->contact_name ?? $msg->contact_number,
+                    'message_body' => \Illuminate\Support\Str::limit($msg->message_body, 100),
+                    'time' => $msg->wa_timestamp ? $msg->wa_timestamp->diffForHumans() : 'Baru saja',
+                    'url' => route('messages.show', [$msg->device_id, $msg->contact_number]),
+                    'device_name' => $msg->device->name
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'notifications' => $notifications,
+            'total_unread' => ChatMessage::whereIn('device_id', $deviceIds)->where('direction', 'in')->where('is_read', false)->count()
+        ]);
+    }
+
+    /**
+     * Mark all unread messages as read
+     */
+    public function markAllRead(Request $request)
+    {
+        $user = auth()->user();
+        $deviceIds = $user->isSuperAdmin() ? Device::pluck('id') : $user->devices->pluck('id');
+
+        ChatMessage::whereIn('device_id', $deviceIds)
+            ->where('direction', 'in')
+            ->where('is_read', false)
+            ->update(['is_read' => true, 'status' => 'read']);
+
+        return response()->json(['success' => true]);
     }
 }

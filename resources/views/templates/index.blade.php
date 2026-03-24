@@ -107,6 +107,8 @@
                         </td>
                         <td>
                             <div style="display:flex;gap:6px;">
+                                <a href="{{ route('templates.show', $tpl->id) }}" class="btn btn-info btn-sm" style="color:white;" title="Lihat/Preview Template"><i class="bi bi-eye"></i></a>
+                                <a href="{{ route('templates.edit', $tpl->id) }}" class="btn btn-warning btn-sm" title="Edit Template"><i class="bi bi-pencil"></i></a>
                                 <form method="POST" action="{{ route('templates.sync', $tpl->id) }}">
                                     @csrf
                                     <button type="submit" class="btn btn-secondary btn-sm" title="Sync status dari Meta"><i class="bi bi-arrow-repeat"></i></button>

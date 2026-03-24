@@ -32,32 +32,10 @@
             </button>
         </div>
         <div class="chat-sidebar-search">
-            <input type="text" id="conversationSearch" placeholder="Cari nama atau nomor...">
+            <input type="text" id="conversationSearch" placeholder="Cari nama, nomor, pesan..." value="{{ $search ?? '' }}">
         </div>
-        <div class="conversation-list">
-            @foreach($conversations as $conv)
-            <a href="{{ route('messages.show', ['deviceId' => $deviceId, 'contactNumber' => $conv->contact_number]) }}"
-               class="conversation-item {{ $conv->contact_number === $contactNumber ? 'active' : '' }}">
-                <div class="conv-avatar">{{ strtoupper(substr($conv->contact_name ?? $conv->contact_number, 0, 1)) }}</div>
-                <div class="conv-info">
-                    <div class="conv-name">{{ $conv->contact_name ?? $conv->contact_number }}</div>
-                    <div class="conv-preview">
-                        @if($conv->last_message)
-                            @if($conv->last_message->direction === 'out')
-                                <i class="bi bi-check2-all" style="color:var(--accent);margin-right:2px;"></i>
-                            @endif
-                            {{ \Illuminate\Support\Str::limit($conv->last_message->message_body ?? '[Media]', 35) }}
-                        @endif
-                    </div>
-                </div>
-                <div class="conv-meta">
-                    <div class="conv-time">{{ $conv->last_time ? \Carbon\Carbon::parse($conv->last_time)->format('H:i') : '' }}</div>
-                    @if($conv->unread_count > 0)
-                        <div class="conv-badge">{{ $conv->unread_count }}</div>
-                    @endif
-                </div>
-            </a>
-            @endforeach
+        <div id="conversationListContainer" style="flex:1; overflow-y:auto; display:flex; flex-direction:column;">
+            @include('messages.partials.conversation_list', ['activeContact' => $contactNumber])
         </div>
     </div>
 
@@ -72,11 +50,25 @@
                 {{ strtoupper(substr($contactName, 0, 1)) }}
             </div>
             <div style="flex:1;">
-                <div style="font-size:14px;font-weight:700;">{{ $contactName }}</div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="font-size:14px;font-weight:700;">{{ $contactName }}</div>
+                    <div id="headerConversationLabels" style="display: flex; gap: 4px;">
+                        @foreach($conversationLabels as $cl)
+                            <span class="badge" style="background-color: {{ $cl->chatLabel->color_hex }}; color: white; font-size: 9px; padding: 2px 6px; border-radius: 4px;" title="{{ $cl->chatLabel->name }}">
+                                {{ $cl->chatLabel->name }}
+                            </span>
+                        @endforeach
+                    </div>
+                </div>
                 <div style="font-size:12px;color:var(--text-muted);">{{ $contactNumber }}</div>
             </div>
-            <div id="pollStatus" style="font-size:10px;color:var(--text-muted);display:flex;align-items:center;gap:4px;">
-                <span class="poll-dot"></span> Live
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <button class="btn btn-secondary btn-sm" onclick="openConversationLabelModal()" style="padding: 4px 8px; font-size: 11px;">
+                    <i class="bi bi-tags"></i> Label
+                </button>
+                <div id="pollStatus" style="font-size:10px;color:var(--text-muted);display:flex;align-items:center;gap:4px;">
+                    <span class="poll-dot"></span> Live
+                </div>
             </div>
         </div>
 
@@ -99,6 +91,16 @@
                         <div class="bubble-avatar">{{ strtoupper(substr($contactName, 0, 1)) }}</div>
                     @endif
                     <div class="chat-bubble {{ $msg->direction === 'out' ? 'bubble-out' : 'bubble-in' }}">
+                        <button class="bubble-action-btn" onclick="openLabelModal({{ $msg->id }}, {{ $msg->chat_label_id ?? 'null' }})" title="Set Label Pesan"><i class="bi bi-tag-fill"></i></button>
+                        
+                        <div id="label-badge-{{ $msg->id }}">
+                            @if($msg->chatLabel)
+                                <div class="bubble-label-badge" style="background-color: {{ $msg->chatLabel->color_hex ?? '#777' }}; border: none; color: white;">
+                                    <i class="bi bi-tag-fill"></i> {{ $msg->chatLabel->name }}
+                                </div>
+                            @endif
+                        </div>
+
                         @if($msg->message_type !== 'text')
                             <div class="bubble-media-tag" style="margin-bottom: 5px;">
                                 @if(in_array($msg->message_type, ['image', 'video', 'document', 'audio', 'sticker']) && $msg->media_url && str_contains($msg->media_url, '/'))
@@ -227,6 +229,68 @@
     </div>
 </div>
 
+{{-- Message Label Modal --}}
+<div class="modal-overlay" id="labelModal" style="display:none;">
+    <div class="modal-content" style="max-width:350px;">
+        <div class="modal-header">
+            <h3><i class="bi bi-tag-fill" style="color:var(--accent);margin-right:8px;"></i> Set Label Pesan</h3>
+            <button class="modal-close" onclick="document.getElementById('labelModal').style.display='none'">&times;</button>
+        </div>
+        <form id="labelForm" onsubmit="saveLabel(event)">
+            <input type="hidden" id="labelMessageId">
+            <div class="form-group">
+                <label class="form-label">Pilih Label</label>
+                <select id="labelInputSelect" class="form-control">
+                    <option value="">(Tanpa Label)</option>
+                    @foreach($chatLabels as $label)
+                        <option value="{{ $label->id }}">{{ $label->name }}</option>
+                    @endforeach
+                </select>
+                <div class="form-hint">Label ini akan menempel pada gelembung pesan tersebut.</div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Simpan</button>
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('labelModal').style.display='none'">Batal</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- Conversation Label Modal --}}
+<div class="modal-overlay" id="convLabelModal" style="display:none;">
+    <div class="modal-content" style="max-width:400px;">
+        <div class="modal-header">
+            <h3><i class="bi bi-tags-fill" style="color:var(--accent);margin-right:8px;"></i> Label Percakapan</h3>
+            <button class="modal-close" onclick="document.getElementById('convLabelModal').style.display='none'">&times;</button>
+        </div>
+        <form id="convLabelForm" onsubmit="saveConversationLabels(event)">
+            <div class="form-group">
+                <label class="form-label">Pilih Label Unit / Kategori</label>
+                <div style="max-height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 10px;">
+                    @forelse($chatLabels as $label)
+                        <label style="display: flex; align-items: center; gap: 10px; padding: 8px; border-bottom: 1px solid var(--border); cursor: pointer; margin-bottom: 0;">
+                            <input type="checkbox" name="label_ids[]" value="{{ $label->id }}" 
+                                {{ $conversationLabels->contains('chat_label_id', $label->id) ? 'checked' : '' }}
+                                style="width: 18px; height: 18px;">
+                            <div style="width: 12px; height: 12px; border-radius: 50%; background-color: {{ $label->color_hex }};"></div>
+                            <span>{{ $label->name }}</span>
+                        </label>
+                    @empty
+                        <div style="padding: 20px; text-align: center; color: var(--text-muted);">
+                            Belum ada label tersedia. <a href="{{ route('chat-labels.index') }}">Klik di sini</a> untuk membuat.
+                        </div>
+                    @endforelse
+                </div>
+                <div class="form-hint" style="margin-top: 10px;">Satu percakapan bisa memiliki banyak label sekaligus.</div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Simpan Perubahan</button>
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('convLabelModal').style.display='none'">Batal</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <style>
 .chat-container { display:flex; height:calc(100vh - 130px); background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
 
@@ -278,6 +342,15 @@
 .bubble-in .bubble-time { color:var(--text-muted); }
 .bubble-media-tag { font-size:11px; color:var(--text-muted); margin-bottom:4px; display:flex; align-items:center; gap:4px; opacity:0.8; }
 .bubble-out .bubble-media-tag { color:rgba(255,255,255,0.6); }
+
+/* Bubble Actions & Labels */
+.chat-bubble { position:relative; }
+.bubble-action-btn { display:none; position:absolute; top:4px; right:4px; background:rgba(255,255,255,0.85); border:none; border-radius:4px; padding:2px 6px; cursor:pointer; color:#555; font-size:11px; z-index:5; box-shadow:0 1px 3px rgba(0,0,0,0.1); }
+.chat-bubble:hover .bubble-action-btn { display:block; }
+.bubble-out .bubble-action-btn { background:rgba(0,0,0,0.25); color:#fff; }
+.bubble-action-btn:hover { transform:scale(1.1); }
+.bubble-label-badge { font-size:10px; padding:3px 6px; border-radius:4px; background:rgba(0,0,0,0.06); display:inline-block; margin-bottom:4px; color:inherit; font-weight:600; vertical-align:top; border:1px solid rgba(0,0,0,0.05); }
+.bubble-out .bubble-label-badge { background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.1); }
 
 /* Retry button */
 .retry-btn { background:none; border:none; color:#ff4444; font-size:12px; cursor:pointer; padding:2px 4px; border-radius:4px; transition:all 0.2s; }
@@ -550,9 +623,21 @@ function appendBubble(msg) {
         }
     }
 
+    const labelData = msg.chat_label || null;
+    let labelBadgeContent = '';
+    if (labelData) {
+        labelBadgeContent = `<div class="bubble-label-badge" style="background-color: ${labelData.color_hex}; border: none; color: white;"><i class="bi bi-tag-fill"></i> ${escapeHtml(labelData.name)}</div>`;
+    }
+    const labelBadge = `<div id="label-badge-${msg.id}">${labelBadgeContent}</div>`;
+    
+    const labelId = msg.chat_label_id || (labelData ? labelData.id : 'null');
+    const actionBtn = `<button class="bubble-action-btn" onclick="openLabelModal(${msg.id}, ${labelId})" title="Set Label Pesan"><i class="bi bi-tag-fill"></i></button>`;
+
     row.innerHTML = `
         ${avatarHtml}
         <div class="chat-bubble ${msg.direction === 'out' ? 'bubble-out' : 'bubble-in'}">
+            ${actionBtn}
+            ${labelBadge}
             ${mediaTag}
             <div class="bubble-text">${escapeHtml(msg.message_body || '')}</div>
             <div class="bubble-time">${time} ${statusIcon}</div>
@@ -779,26 +864,59 @@ function sendTemplateMessage(templateId, templateName, templateBody) {
 window.addEventListener('beforeunload', () => clearInterval(pollInterval));
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Scroll and focus
-    scrollToBottom();
+    const searchParam = "{{ $search ?? '' }}";
+    if (searchParam) {
+        const bubbles = document.querySelectorAll('.bubble-text');
+        let found = false;
+        bubbles.forEach(b => {
+            if (!found && b.textContent.toLowerCase().includes(searchParam.toLowerCase())) {
+                found = true;
+                b.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const bubble = b.closest('.chat-bubble');
+                bubble.style.transition = 'background-color 0.5s';
+                const origBg = bubble.style.backgroundColor;
+                bubble.style.backgroundColor = 'rgba(255, 215, 0, 0.3)'; 
+                setTimeout(() => {
+                    bubble.style.backgroundColor = origBg;
+                }, 2000);
+            }
+        });
+        if (!found) {
+            scrollToBottom();
+        }
+    } else {
+        scrollToBottom();
+    }
+    
     messageInput.focus();
 
-    // Sidebar Search Filtering
+    // Sidebar Search Filtering via AJAX
     const searchInput = document.getElementById('conversationSearch');
-    const convItems = document.querySelectorAll('.conversation-item');
+    const listContainer = document.getElementById('conversationListContainer');
+    
+    let debounceTimer;
 
-    if (searchInput) {
+    if (searchInput && listContainer) {
         searchInput.addEventListener('input', function() {
-            const query = this.value.toLowerCase();
-            convItems.forEach(item => {
-                const name = item.querySelector('.conv-name').textContent.toLowerCase();
-                const number = item.querySelector('.conv-time')?.textContent.toLowerCase() || ''; // Not really number but just to avoid errors if needed
-                if (name.includes(query)) {
-                    item.style.display = 'flex';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
+            clearTimeout(debounceTimer);
+            const query = this.value;
+            
+            listContainer.style.opacity = '0.5';
+
+            debounceTimer = setTimeout(() => {
+                fetch(`{{ route('messages.index') }}?device_id=${DEVICE_ID}&search=${encodeURIComponent(query)}`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(res => res.text())
+                .then(html => {
+                    listContainer.innerHTML = html;
+                    listContainer.style.opacity = '1';
+                })
+                .catch(err => {
+                    console.error(err);
+                    listContainer.style.opacity = '1';
+                });
+            }, 600);
         });
     }
 
@@ -834,6 +952,114 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function scrollToBottom() {
     chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// Settings Label Functions
+function openLabelModal(id, currentLabelId) {
+    document.getElementById('labelMessageId').value = id;
+    document.getElementById('labelInputSelect').value = currentLabelId || '';
+    document.getElementById('labelModal').style.display = 'flex';
+}
+
+function saveLabel(e) {
+    e.preventDefault();
+    const id = document.getElementById('labelMessageId').value;
+    const labelId = document.getElementById('labelInputSelect').value;
+
+    const btnSubmit = document.querySelector('#labelForm button[type="submit"]');
+    btnSubmit.disabled = true;
+
+    fetch(`/messages/${id}/label`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' },
+        body: JSON.stringify({ chat_label_id: labelId })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if(data.success) {
+            document.getElementById('labelModal').style.display = 'none';
+            
+            let badgeContainer = document.getElementById('label-badge-' + id);
+            const row = document.querySelector(`[data-msg-id="${id}"] .chat-bubble`);
+            
+            if (row && badgeContainer) {
+                if (data.label) {
+                    badgeContainer.innerHTML = `
+                        <div class="bubble-label-badge" style="background-color: ${data.label.color_hex}; border: none; color: white;">
+                            <i class="bi bi-tag-fill"></i> ${escapeHtml(data.label.name)}
+                        </div>
+                    `;
+                } else {
+                    badgeContainer.innerHTML = '';
+                }
+                const btn = row.querySelector('.bubble-action-btn');
+                if (btn) btn.setAttribute('onclick', `openLabelModal(${id}, ${data.label ? data.label.id : 'null'})`);
+            }
+            
+            showToast('Label tersimpan!', 'success');
+        } else {
+            showToast('Gagal menyimpan label', 'error');
+        }
+    })
+    .catch(() => showToast('Gagal menyimpan label', 'error'))
+    .finally(() => btnSubmit.disabled = false);
+}
+
+function openConversationLabelModal() {
+    document.getElementById('convLabelModal').style.display = 'flex';
+}
+
+function saveConversationLabels(e) {
+    e.preventDefault();
+    const form = document.getElementById('convLabelForm');
+    const formData = new FormData(form);
+    const labelIds = [];
+    formData.getAll('label_ids[]').forEach(id => labelIds.push(id));
+
+    const btnSubmit = form.querySelector('button[type="submit"]');
+    btnSubmit.disabled = true;
+
+    fetch(`{{ route('messages.updateConversationLabels', [$deviceId, $contactNumber]) }}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' },
+        body: JSON.stringify({ label_ids: labelIds })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if(data.success) {
+            document.getElementById('convLabelModal').style.display = 'none';
+            
+            // Update Header indicators
+            const headerContainer = document.getElementById('headerConversationLabels');
+            if (headerContainer) {
+                headerContainer.innerHTML = '';
+                data.labels.forEach(l => {
+                    const span = document.createElement('span');
+                    span.className = 'badge';
+                    span.style.backgroundColor = l.color;
+                    span.style.color = 'white';
+                    span.style.fontSize = '9px';
+                    span.style.padding = '2px 6px';
+                    span.style.borderRadius = '4px';
+                    span.title = l.name;
+                    span.innerText = l.name;
+                    headerContainer.appendChild(span);
+                });
+            }
+            
+            showToast('Label percakapan diperbarui!', 'success');
+            
+            // Optional: Refresh sidebar to show new dots
+            const searchInput = document.getElementById('conversationSearch');
+            if (searchInput) {
+                searchInput.dispatchEvent(new Event('input'));
+            }
+        } else {
+            showToast('Gagal memperbarui label', 'error');
+        }
+    })
+    .catch(() => showToast('Gagal memperbarui label', 'error'))
+    .finally(() => btnSubmit.disabled = false);
 }
 </script>
 @endsection

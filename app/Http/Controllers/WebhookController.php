@@ -8,6 +8,7 @@ use App\Models\Device;
 use App\Models\IncomingMessage;
 use App\Models\WebhookLog;
 use App\Services\WhatsAppService;
+use App\Services\FCMService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -255,7 +256,37 @@ class WebhookController extends Controller
                 'wa_message_id' => $message['id'] ?? null,
                 'wa_timestamp' => $waTimestamp,
                 'status' => 'received',
+                'is_read' => false,
             ]);
+
+            // Notify associated users via Firebase
+            $this->notifyUsers($device, $message['from'], $contactName, $messageBody);
+        }
+    }
+
+    /**
+     * Notify all users associated with the device about the new message
+     */
+    private function notifyUsers(Device $device, string $from, ?string $contactName, ?string $body): void
+    {
+        $users = $device->users()->whereNotNull('fcm_token')->get();
+        
+        if ($users->isEmpty()) return;
+
+        $fcmService = new FCMService();
+        $title = "Pesan Baru dari " . ($contactName ?? $from);
+        $notificationBody = $body ?? 'Pesan media diterima';
+        
+        $data = [
+            'device_id' => (string) $device->id,
+            'contact_number' => $from,
+            'contact_name' => $contactName,
+            'message_body' => $notificationBody,
+            'click_action' => route('messages.show', [$device->id, $from]),
+        ];
+
+        foreach ($users as $user) {
+            $fcmService->sendNotification($user->fcm_token, $title, $notificationBody, $data);
         }
     }
 

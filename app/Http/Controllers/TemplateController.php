@@ -137,6 +137,107 @@ class TemplateController extends Controller
             ->with('error', $errorMsg);
     }
 
+    public function show($id)
+    {
+        $template = MessageTemplate::findOrFail($id);
+        
+        return view('templates.show', compact('template'));
+    }
+
+    public function edit($id)
+    {
+        $template = MessageTemplate::findOrFail($id);
+        $devices = $this->getDevices();
+        
+        return view('templates.edit', compact('template', 'devices'));
+    }
+
+    public function update(Request $request, $id)
+    {
+        $template = MessageTemplate::findOrFail($id);
+
+        if (!$template->meta_template_id) {
+            return back()->with('error', 'Template belum memiliki ID dari Meta, tidak bisa diedit.');
+        }
+
+        $data = $request->validate([
+            'category' => 'required|in:MARKETING,UTILITY,AUTHENTICATION',
+            'header_type' => 'required|in:NONE,TEXT,IMAGE,VIDEO,DOCUMENT',
+            'header_content' => 'nullable|string',
+            'header_media' => 'nullable|file|max:102400', // max 100MB for documents
+            'body' => 'required|string',
+            'footer' => 'nullable|string|max:60',
+            'buttons' => 'nullable|array|max:3',
+            'buttons.*.type' => 'required_with:buttons|in:QUICK_REPLY,URL,PHONE_NUMBER,COPY_CODE,FLOW',
+            'buttons.*.text' => 'required_with:buttons|string|max:25',
+            'buttons.*.url' => 'nullable|required_if:buttons.*.type,URL|url|max:2000',
+            'buttons.*.phone_number' => 'nullable|required_if:buttons.*.type,PHONE_NUMBER|string|max:20',
+            'buttons.*.copy_code' => 'nullable|required_if:buttons.*.type,COPY_CODE|string|max:15',
+            'buttons.*.flow_id' => 'nullable|required_if:buttons.*.type,FLOW|string',
+            'buttons.*.flow_action' => 'nullable|in:navigate,data_exchange',
+        ]);
+
+        $device = $template->device;
+        $waService = new WhatsAppService($device);
+
+        // Handle media file upload
+        $headerMediaPath = $template->header_media_path;
+        $headerHandle = null;
+
+        if ($request->hasFile('header_media') && in_array($data['header_type'], ['IMAGE', 'VIDEO', 'DOCUMENT'])) {
+            $file = $request->file('header_media');
+            // Store locally first
+            $headerMediaPath = $file->store('template-media', 'public');
+
+            // Upload to Meta via Resumable Upload API to get the handle
+            $filePath = storage_path('app/public/' . $headerMediaPath);
+            $uploadResult = $waService->uploadMediaForHandle(
+                $filePath,
+                $file->getClientOriginalName(),
+                $file->getSize(),
+                $file->getMimeType()
+            );
+
+            if (!$uploadResult['success']) {
+                $errorJson = isset($uploadResult['full_response']) ? json_encode($uploadResult['full_response'], JSON_PRETTY_PRINT) : 'N/A';
+                return back()
+                    ->with('error', 'Gagal upload media ke Meta: ' . ($uploadResult['error'] ?? 'Unknown error'))
+                    ->with('error_json', $errorJson);
+            }
+
+            $headerHandle = $uploadResult['handle'];
+        }
+
+        $data['header_handle'] = $headerHandle;
+
+        // Submit to Meta API
+        $result = $waService->editTemplate($template->meta_template_id, $data);
+
+        if (!$result['success']) {
+            $errorMsg = 'Gagal mengajukan edit template: ' . ($result['error'] ?? 'Unknown error');
+            if (!empty($result['full_response'])) {
+                $errorJson = json_encode($result['full_response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+                return back()->with('error', $errorMsg)->with('error_json', $errorJson);
+            }
+            return back()->with('error', $errorMsg);
+        }
+
+        $template->update([
+            'category' => $data['category'],
+            'header_type' => $data['header_type'],
+            'header_content' => $data['header_content'] ?? null,
+            'header_media_path' => $headerMediaPath,
+            'body' => $data['body'],
+            'footer' => $data['footer'] ?? null,
+            'buttons' => $request->input('buttons'),
+            'status' => 'PENDING',
+            'rejected_reason' => null,
+        ]);
+
+        return redirect()->route('templates.index', ['device_id' => $device->id])
+            ->with('success', 'Template berhasil diupdate dan diajukan ulang ke Meta!');
+    }
+
     public function sync(Request $request, $id)
     {
         $template = MessageTemplate::findOrFail($id);

@@ -31,40 +31,11 @@
             </button>
         </div>
         <div class="chat-sidebar-search">
-            <input type="text" id="conversationSearch" placeholder="Cari nama atau nomor...">
+            <input type="text" id="conversationSearch" placeholder="Cari nama, nomor, isi pesan..." value="{{ $search ?? '' }}">
         </div>
-        @if($conversations->isEmpty())
-            <div class="empty-state" style="padding:40px 20px;">
-                <i class="bi bi-chat-dots" style="font-size:36px;"></i>
-                <h4 style="font-size:14px;">Belum ada percakapan</h4>
-                <p style="font-size:12px;">Klik "Baru" untuk memulai chat baru</p>
-            </div>
-        @else
-            <div class="conversation-list">
-                @foreach($conversations as $conv)
-                <a href="{{ route('messages.show', ['deviceId' => $deviceId, 'contactNumber' => $conv->contact_number]) }}" class="conversation-item">
-                    <div class="conv-avatar">{{ strtoupper(substr($conv->contact_name ?? $conv->contact_number, 0, 1)) }}</div>
-                    <div class="conv-info">
-                        <div class="conv-name">{{ $conv->contact_name ?? $conv->contact_number }}</div>
-                        <div class="conv-preview">
-                            @if($conv->last_message)
-                                @if($conv->last_message->direction === 'out')
-                                    <i class="bi bi-check2-all" style="color:var(--accent);margin-right:2px;"></i>
-                                @endif
-                                {{ \Illuminate\Support\Str::limit($conv->last_message->message_body ?? '[Media]', 35) }}
-                            @endif
-                        </div>
-                    </div>
-                    <div class="conv-meta">
-                        <div class="conv-time">{{ $conv->last_time ? \Carbon\Carbon::parse($conv->last_time)->format('H:i') : '' }}</div>
-                        @if($conv->unread_count > 0)
-                            <div class="conv-badge">{{ $conv->unread_count }}</div>
-                        @endif
-                    </div>
-                </a>
-                @endforeach
-            </div>
-        @endif
+        <div id="conversationListContainer" style="flex:1; overflow-y:auto; display:flex; flex-direction:column;">
+            @include('messages.partials.conversation_list')
+        </div>
     </div>
     <div class="chat-main">
         <div class="chat-empty-state">
@@ -144,19 +115,37 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('conversationSearch');
-    const convItems = document.querySelectorAll('.conversation-item');
+    const listContainer = document.getElementById('conversationListContainer');
+    const deviceId = '{{ $deviceId }}';
+    
+    let debounceTimer;
 
-    if (searchInput) {
+    if (searchInput && listContainer) {
+        if(searchInput.value) {
+            searchInput.focus();
+            searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+        }
+
         searchInput.addEventListener('input', function() {
-            const query = this.value.toLowerCase();
-            convItems.forEach(item => {
-                const name = item.querySelector('.conv-name').textContent.toLowerCase();
-                if (name.includes(query)) {
-                    item.style.display = 'flex';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
+            clearTimeout(debounceTimer);
+            const query = this.value;
+            
+            listContainer.style.opacity = '0.5';
+
+            debounceTimer = setTimeout(() => {
+                fetch(`{{ route('messages.index') }}?device_id=${deviceId}&search=${encodeURIComponent(query)}`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(res => res.text())
+                .then(html => {
+                    listContainer.innerHTML = html;
+                    listContainer.style.opacity = '1';
+                })
+                .catch(err => {
+                    console.error(err);
+                    listContainer.style.opacity = '1';
+                });
+            }, 600);
         });
     }
 });

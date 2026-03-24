@@ -67,6 +67,84 @@
             transition: all 0.2s; font-size: 14px; font-weight: 500; margin-bottom: 2px;
         }
         .nav-item:hover { background: var(--bg-glass); color: var(--text-primary); }
+        .total-unread-dot {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: var(--danger);
+            color: white;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 2px 5px;
+            border-radius: 50%;
+            min-width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid var(--bg-secondary);
+        }
+        
+        /* Notification Dropdown */
+        .notification-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            width: 320px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: none;
+            margin-top: 10px;
+            overflow: hidden;
+            animation: slideIn 0.2s ease-out;
+        }
+        @keyframes slideIn { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .notification-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-glass);
+        }
+        .notification-list {
+            max-height: 350px;
+            overflow-y: auto;
+        }
+        .notification-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            gap: 12px;
+            text-decoration: none !important;
+            color: var(--text-primary) !important;
+            transition: background 0.2s;
+        }
+        .notification-item:hover { background: var(--bg-hover); }
+        .notification-item:last-child { border-bottom: none; }
+        .notification-item-content { flex: 1; }
+        .notification-item-title { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+        .notification-item-body { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+        .notification-item-meta { font-size: 10px; color: var(--text-muted); margin-top: 4px; display: flex; justify-content: space-between; }
+        .notification-footer {
+            padding: 10px;
+            text-align: center;
+            border-top: 1px solid var(--border-color);
+            background: var(--bg-glass);
+        }
+        .mark-all-btn {
+            font-size: 12px;
+            color: var(--accent);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .mark-all-btn:hover { text-decoration: underline; }
+        
         .nav-item.active { background: var(--accent-soft); color: var(--accent); }
         .nav-item i { font-size: 18px; width: 22px; text-align: center; }
         .nav-badge {
@@ -317,6 +395,13 @@
             </a>
             <a href="{{ route('messages.index') }}" class="nav-item {{ request()->routeIs('messages.*') ? 'active' : '' }}">
                 <i class="bi bi-chat-dots-fill"></i> Pesan Masuk
+                @php
+                    $totalUnread = \App\Models\ChatMessage::where('direction', 'in')->where('is_read', false)->count();
+                @endphp
+                <span id="totalUnreadBadge" class="nav-badge" style="{{ $totalUnread > 0 ? '' : 'display: none;' }}">{{ $totalUnread }}</span>
+            </a>
+            <a href="{{ route('chat-labels.index') }}" class="nav-item {{ request()->routeIs('chat-labels.*') ? 'active' : '' }}">
+                <i class="bi bi-tags-fill"></i> Manajemen Label
             </a>
 
             @if(auth()->user()->isSuperAdmin())
@@ -335,6 +420,9 @@
                     <div class="user-name">{{ auth()->user()->name }}</div>
                     <div class="user-role">{{ auth()->user()->role }}</div>
                 </div>
+                <button onclick="askNotificationPermission()" class="btn btn-sm btn-light" style="margin-left:auto; padding: 4px 8px;" title="Aktifkan Notifikasi">
+                    <i class="bi bi-bell-fill"></i>
+                </button>
             </div>
             <form method="POST" action="{{ route('logout') }}" style="margin-top: 8px;">
                 @csrf
@@ -353,6 +441,27 @@
                 <h2>@yield('title', 'Dashboard')</h2>
             </div>
             <div class="topbar-actions">
+                <div style="position:relative; margin-right: 15px;">
+                    <button id="notificationBell" class="btn btn-icon" style="padding: 0; background: none; border: none; position: relative;">
+                        <i class="bi bi-bell-fill" style="font-size: 20px; color: var(--text-secondary);"></i>
+                        <span class="total-unread-dot" id="topbarUnreadBadge" style="{{ $totalUnread > 0 ? '' : 'display: none;' }}">{{ $totalUnread }}</span>
+                    </button>
+                    
+                    <div class="notification-dropdown" id="notificationDropdown">
+                        <div class="notification-header">
+                            <span style="font-weight: 700; font-size: 14px;">Notifikasi</span>
+                            <button class="mark-all-btn" onclick="markAllNotificationsRead()">Tandai baca semua</button>
+                        </div>
+                        <div class="notification-list" id="notificationList">
+                            <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px;">
+                                Memuat notifikasi...
+                            </div>
+                        </div>
+                        <div class="notification-footer">
+                            <a href="{{ route('messages.index') }}" style="font-size: 12px; color: var(--accent); font-weight: 600;">Lihat Semua Pesan</a>
+                        </div>
+                    </div>
+                </div>
                 @yield('actions')
                 @stack('topbar_actions')
             </div>
@@ -388,6 +497,263 @@
             document.getElementById('sidebar').classList.toggle('open');
             document.getElementById('sidebarOverlay').classList.toggle('open');
         }
+    </script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "{{ config('services.firebase.api_key') }}",
+            authDomain: "{{ config('services.firebase.auth_domain') }}",
+            projectId: "{{ config('services.firebase.project_id') }}",
+            storageBucket: "{{ config('services.firebase.storage_bucket') }}",
+            messagingSenderId: "{{ config('services.firebase.messaging_sender_id') }}",
+            appId: "{{ config('services.firebase.app_id') }}",
+            measurementId: "{{ config('services.firebase.measurement_id') }}"
+        };
+
+        // Initialize Firebase only if config is provided
+        if (firebaseConfig.apiKey) {
+            firebase.initializeApp(firebaseConfig);
+            const messaging = firebase.messaging();
+
+            // Request permission and get token
+            function requestPermission() {
+                console.log('Requesting permission...');
+                Notification.requestPermission().then((permission) => {
+                    if (permission === 'granted') {
+                        console.log('Notification permission granted.');
+                        messaging.getToken({ vapidKey: "{{ config('services.firebase.vapid_key') }}" }).then((currentToken) => {
+                            if (currentToken) {
+                                console.log('FCM Token:', currentToken);
+                                saveToken(currentToken);
+                            } else {
+                                console.log('No registration token available. Request permission to generate one.');
+                            }
+                        }).catch((err) => {
+                            console.log('An error occurred while retrieving token. ', err);
+                        });
+                    } else {
+                        console.log('Unable to get permission to notify.');
+                    }
+                });
+            }
+
+            function saveToken(token) {
+                fetch("{{ route('save-fcm-token') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify({ token: token })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Token saved:', data);
+                })
+                .catch(error => {
+                    console.error('Error saving token:', error);
+                });
+            }
+
+            // Handle incoming messages while the app is in the foreground
+            messaging.onMessage((payload) => {
+                console.log('Message received. ', payload);
+                const notificationTitle = payload.notification.title;
+                const notificationOptions = {
+                    body: payload.notification.body,
+                    icon: '/favicon.ico'
+                };
+
+                // Show browser notification if permitted
+                if (Notification.permission === 'granted') {
+                    new Notification(notificationTitle, notificationOptions);
+                }
+
+                // Show custom toast notification (Top-Right)
+                const contactName = payload.data.contact_name || payload.data.contact_number || 'Pesan Baru';
+                const messageBody = payload.data.message_body || payload.notification.body;
+                
+                Swal.fire({
+                    title: contactName,
+                    text: messageBody,
+                    icon: 'info',
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 5000,
+                    timerProgressBar: true,
+                    didOpen: (toast) => {
+                        toast.addEventListener('mouseenter', Swal.stopTimer)
+                        toast.addEventListener('mouseleave', Swal.resumeTimer)
+                        toast.style.cursor = 'pointer';
+                        toast.onclick = () => {
+                            if (payload.data.click_action) {
+                                window.location.href = payload.data.click_action;
+                            }
+                        };
+                    }
+                });
+
+                // Update unread badge count
+                updateUnreadBadge(1);
+
+                // Refresh conversation list if visible
+                if (typeof refreshConversationList === 'function') {
+                    refreshConversationList();
+                }
+            });
+
+            function refreshConversationList() {
+                const listContainer = document.getElementById('conversationListContainer');
+                const searchInput = document.getElementById('conversationSearch');
+                // DEVICE_ID might be defined in the page scope
+                const deviceId = typeof DEVICE_ID !== 'undefined' ? DEVICE_ID : (new URLSearchParams(window.location.search)).get('device_id');
+                
+                if (listContainer && deviceId) {
+                    const query = searchInput ? searchInput.value : '';
+                    fetch(`/messages?device_id=${deviceId}&search=${encodeURIComponent(query)}`, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    })
+                    .then(res => res.text())
+                    .then(html => {
+                        listContainer.innerHTML = html;
+                    })
+                    .catch(err => console.error('Error refreshing list:', err));
+                }
+            }
+
+            function updateUnreadBadge(plus = 1) {
+                const badges = [
+                    document.getElementById('totalUnreadBadge'),
+                    document.getElementById('topbarUnreadBadge')
+                ];
+                
+                badges.forEach(badge => {
+                    if (badge) {
+                        let current = parseInt(badge.innerText) || 0;
+                        current += plus;
+                        if (current < 0) current = 0;
+                        badge.innerText = current;
+                        badge.style.display = current > 0 ? (badge.classList.contains('total-unread-dot') ? 'flex' : 'inline-block') : 'none';
+                    }
+                });
+            }
+
+            // Expose for external updates if needed
+            window.updateUnreadBadge = updateUnreadBadge;
+
+            // Trigger permission request on load if not already granted
+            if (Notification.permission !== 'granted') {
+                // You might want to trigger this on a user action instead of auto-load
+                // requestPermission(); 
+            } else {
+                // If already granted, refresh token
+                messaging.getToken({ vapidKey: "{{ env('FIREBASE_VAPID_KEY') }}" }).then((currentToken) => {
+                    if (currentToken) {
+                        saveToken(currentToken);
+                    }
+                });
+            }
+            
+            // Expose for user action if needed
+            window.askNotificationPermission = requestPermission;
+        }
+            // Notification Dropdown logic
+            const bell = document.getElementById('notificationBell');
+            const dropdown = document.getElementById('notificationDropdown');
+            const nList = document.getElementById('notificationList');
+
+            if (bell) {
+                bell.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const isVisible = dropdown.style.display === 'block';
+                    dropdown.style.display = isVisible ? 'none' : 'block';
+                    if (!isVisible) {
+                        loadNotifications();
+                    }
+                });
+            }
+
+            document.addEventListener('click', () => {
+                if (dropdown) dropdown.style.display = 'none';
+            });
+
+            function loadNotifications() {
+                nList.innerHTML = '<div style="padding: 20px; text-align: center;"><div class="spinner-border spinner-border-sm text-primary"></div></div>';
+                
+                fetch("{{ route('messages.unread-notifications') }}")
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            renderNotifications(data.notifications);
+                            updateBadgeInternal(data.total_unread);
+                        }
+                    })
+                    .catch(err => {
+                        nList.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">Gagal memuat.</div>';
+                    });
+            }
+
+            function renderNotifications(notifications) {
+                if (notifications.length === 0) {
+                    nList.innerHTML = '<div style="padding: 30px 20px; text-align: center; color: var(--text-muted); font-size: 13px;"><i class="bi bi-bell-slash" style="font-size: 24px; display: block; margin-bottom: 10px; opacity: 0.5;"></i>Belum ada notifikasi baru</div>';
+                    return;
+                }
+
+                nList.innerHTML = notifications.map(n => `
+                    <a href="${n.url}" class="notification-item">
+                        <div class="conv-avatar" style="width: 32px; height: 32px; font-size: 12px;">${n.contact_name.charAt(0).toUpperCase()}</div>
+                        <div class="notification-item-content">
+                            <div class="notification-item-title">${n.contact_name}</div>
+                            <div class="notification-item-body">${n.message_body}</div>
+                            <div class="notification-item-meta">
+                                <span><i class="bi bi-phone"></i> ${n.device_name}</span>
+                                <span>${n.time}</span>
+                            </div>
+                        </div>
+                    </a>
+                `).join('');
+            }
+
+            function markAllNotificationsRead() {
+                fetch("{{ route('messages.mark-all-read') }}", {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': "{{ csrf_token() }}", 'Accept': 'application/json' }
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        updateBadgeInternal(0);
+                        renderNotifications([]);
+                        // Also refresh sidebar counts
+                        if (typeof refreshConversationList === 'function') refreshConversationList();
+                    }
+                });
+            }
+
+            function updateBadgeInternal(count) {
+                const badges = [
+                    document.getElementById('totalUnreadBadge'),
+                    document.getElementById('topbarUnreadBadge')
+                ];
+                badges.forEach(badge => {
+                    if (badge) {
+                        badge.innerText = count;
+                        badge.style.display = count > 0 ? (badge.classList.contains('total-unread-dot') ? 'flex' : 'inline-block') : 'none';
+                    }
+                });
+            }
+
+            // Update existing updateUnreadBadge to call reload if dropdown open
+            const oldUpdateBadge = window.updateUnreadBadge;
+            window.updateUnreadBadge = function(plus = 1) {
+                oldUpdateBadge(plus);
+                if (dropdown && dropdown.style.display === 'block') {
+                    loadNotifications();
+                }
+            };
     </script>
     @yield('scripts')
 </body>

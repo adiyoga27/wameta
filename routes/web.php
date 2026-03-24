@@ -10,6 +10,8 @@ use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\TopupController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WebhookLogController;
+use App\Http\Controllers\ChatLabelController;
+use App\Http\Controllers\FCMController;
 use Illuminate\Support\Facades\Route;
 
 // Auth
@@ -41,6 +43,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/templates', [TemplateController::class, 'index'])->name('templates.index');
     Route::get('/templates/create', [TemplateController::class, 'create'])->name('templates.create');
     Route::post('/templates', [TemplateController::class, 'store'])->name('templates.store');
+    Route::get('/templates/{id}', [TemplateController::class, 'show'])->name('templates.show');
+    Route::get('/templates/{id}/edit', [TemplateController::class, 'edit'])->name('templates.edit');
+    Route::put('/templates/{id}', [TemplateController::class, 'update'])->name('templates.update');
     Route::post('/templates/{id}/sync', [TemplateController::class, 'sync'])->name('templates.sync');
     Route::post('/templates/sync-all', [TemplateController::class, 'syncAll'])->name('templates.syncAll');
     Route::delete('/templates/{id}', [TemplateController::class, 'destroy'])->name('templates.destroy');
@@ -69,11 +74,32 @@ Route::middleware('auth')->group(function () {
     Route::put('/contact-categories/{category}', [ContactController::class, 'updateCategory'])->name('contact-categories.update');
     Route::delete('/contact-categories/{category}', [ContactController::class, 'destroyCategory'])->name('contact-categories.destroy');
 
+    // Chat Labels
+    Route::resource('chat-labels', ChatLabelController::class)->except(['create', 'show', 'edit']);
+
     // Messages / Chat
     Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
     Route::get('/messages/{deviceId}/{contactNumber}', [MessageController::class, 'show'])->name('messages.show');
     Route::post('/messages/send', [MessageController::class, 'send'])->name('messages.send');
     Route::post('/messages/send-template', [MessageController::class, 'sendTemplate'])->name('messages.sendTemplate');
     Route::post('/messages/{chatMessage}/retry', [MessageController::class, 'retry'])->name('messages.retry');
+    Route::put('/messages/{chatMessage}/label', [MessageController::class, 'setLabel'])->name('messages.setLabel');
+    Route::put('/messages/{deviceId}/{contactNumber}/labels', [MessageController::class, 'updateConversationLabels'])->name('messages.updateConversationLabels');
     Route::get('/messages/{deviceId}/{contactNumber}/poll', [MessageController::class, 'poll'])->name('messages.poll');
+    Route::get('/messages/unread-notifications', [MessageController::class, 'unreadNotifications'])->name('messages.unread-notifications');
+    Route::post('/messages/mark-all-read', [MessageController::class, 'markAllRead'])->name('messages.mark-all-read');
+    Route::post('/save-fcm-token', [FCMController::class, 'saveToken'])->name('save-fcm-token');
+    Route::get('/test-notification', function() {
+        if (!auth()->user()->fcm_token) {
+            return "FCM Token not found for this user. Please enable notifications in your browser first.";
+        }
+        $fcm = new \App\Services\FCMService();
+        $res = $fcm->sendNotification(
+            auth()->user()->fcm_token, 
+            "Test Notification", 
+            "This is a test notification from Wameta!",
+            ['url' => route('dashboard')]
+        );
+        return $res ? "Notification sent! " . json_encode($res) : "Failed to send notification. Check logs.";
+    })->name('test-notification');
 });

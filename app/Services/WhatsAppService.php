@@ -251,6 +251,41 @@ class WhatsAppService
     }
 
     /**
+     * Edit a message template on Meta
+     */
+    public function editTemplate(string $templateId, array $data): array
+    {
+        $payload = [
+            'components' => $this->buildComponents($data),
+        ];
+
+        Log::info('WhatsApp editTemplate payload', ['payload' => $payload, 'template_id' => $templateId]);
+
+        try {
+            $response = Http::withHeaders($this->headers())
+                ->post("{$this->baseUrl}/{$templateId}", $payload);
+
+            $result = $response->json();
+            Log::info('WhatsApp editTemplate response', ['status' => $response->status(), 'body' => $result]);
+
+            if ($response->successful()) {
+                return ['success' => true, 'data' => $result];
+            }
+
+            return [
+                'success' => false,
+                'error' => $result['error']['message'] ?? 'Unknown error',
+                'error_code' => $result['error']['code'] ?? 0,
+                'error_detail' => $result['error']['error_user_msg'] ?? ($result['error']['error_data']['details'] ?? ''),
+                'full_response' => $result,
+            ];
+        } catch (\Exception $e) {
+            Log::error('WhatsApp editTemplate error: ' . $e->getMessage());
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
      * Build template components from form data
      */
     protected function buildComponents(array $data): array

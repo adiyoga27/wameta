@@ -16,17 +16,21 @@ class ChatMessage extends Model
         'media_url',
         'wa_message_id',
         'wa_timestamp',
-        'status',
-        'is_billed',
-        'billed_amount',
+        'is_read',
     ];
 
     protected $casts = [
         'wa_timestamp' => 'datetime',
+        'is_read' => 'boolean',
     ];
 
     public function device()
     {
         return $this->belongsTo(Device::class);
+    }
+
+    public function chatLabel()
+    {
+        return $this->belongsTo(ChatLabel::class);
     }
 }
