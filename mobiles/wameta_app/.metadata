@@ -1,0 +1,9 @@
+# project_type: app
+# This file tracks properties used by the Flutter tool.
+# It should be version controlled.
+
+version:
+  revision: 8bc36a188358e658e3e498c09d5718dfd491f692
+  channel: stable
+
+project_type: app

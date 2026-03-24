@@ -1,0 +1,35 @@
+# Flutter-related
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+
+# Android-related
+**/android/**/local.properties
+**/android/**/generated/
+**/android/**/gradlew
+**/android/**/gradlew.bat
+**/android/**/gradle-wrapper.jar
+**/.gradle/
+**/captures/
+**/externalNativeBuild/
+**/android/.cxx/
+
+# iOS-related
+**/ios/Flutter/.last_build_id
+**/ios/Pods/
+**/ios/Runner.xcworkspace/
+**/ios/Runner.xcodeproj/project.xcworkspace/
+**/ios/Runner/GeneratedPluginRegistrant.h
+**/ios/Runner/GeneratedPluginRegistrant.m
+**/ios/.last_build_id
+Icon?
+
+# Others
+.DS_Store
+.idea/
+.vscode/
+*.log
+*.pyc
